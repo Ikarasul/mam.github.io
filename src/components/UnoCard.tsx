@@ -118,6 +118,105 @@ const renderActionSymbol = (value: CardValue, featureColor: string, sizeClass = 
     );
   }
 
+  if (value === 'swap') {
+    return (
+      <svg className={sizeClass} viewBox="0 0 40 40" fill="none">
+        <path d="M8 15h20M24 10l5 5-5 5" stroke="#ffffff" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M32 25H12M16 20l-5 5 5 5" stroke="#ffffff" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M8 15h20M24 10l5 5-5 5" stroke="#000000" strokeWidth="1.2" strokeLinecap="round" className="opacity-40" />
+        <path d="M32 25H12M16 20l-5 5 5 5" stroke="#000000" strokeWidth="1.2" strokeLinecap="round" className="opacity-40" />
+      </svg>
+    );
+  }
+
+  if (value === 'shield') {
+    return (
+      <svg className={sizeClass} viewBox="0 0 40 40" fill="none">
+        <path d="M20 6s11 2 11 11c0 8-11 17-11 17S9 25 9 17C9 8 20 6 20 6z" fill="none" stroke="#ffffff" strokeWidth="4.5" strokeLinejoin="round" />
+        <path d="M20 10v20M14 18h12" stroke="#ffffff" strokeWidth="3.5" strokeLinecap="round" />
+        <path d="M20 6s11 2 11 11c0 8-11 17-11 17S9 25 9 17C9 8 20 6 20 6z" fill="none" stroke="#000000" strokeWidth="1.2" className="opacity-40" />
+      </svg>
+    );
+  }
+
+  if (value === 'bomb') {
+    return (
+      <svg className={sizeClass} viewBox="0 0 40 40" fill="none">
+        <circle cx="18" cy="22" r="10" fill="none" stroke="#ffffff" strokeWidth="4.5" />
+        <path d="M25 15l4-4M30 8l2-2M27 6l2 2" stroke="#ffffff" strokeWidth="3.5" strokeLinecap="round" />
+        <circle cx="18" cy="22" r="10" fill="none" stroke="#000000" strokeWidth="1.2" className="opacity-40" />
+      </svg>
+    );
+  }
+
+  if (value === 'spy') {
+    return (
+      <svg className={sizeClass} viewBox="0 0 40 40" fill="none">
+        <path d="M6 20s7-10 14-10 14 10 14 10-7 10-14 10S6 20 6 20z" fill="none" stroke="#ffffff" strokeWidth="4.5" strokeLinejoin="round" />
+        <circle cx="20" cy="20" r="4.5" fill="#ffffff" />
+        <path d="M6 20s7-10 14-10 14 10 14 10-7 10-14 10S6 20 6 20z" fill="none" stroke="#000000" strokeWidth="1.2" className="opacity-40" />
+      </svg>
+    );
+  }
+
+  if (value === 'target2') {
+    return (
+      <svg className={sizeClass} viewBox="0 0 40 40" fill="none">
+        <circle cx="20" cy="20" r="14" fill="none" stroke="#ffffff" strokeWidth="4.5" />
+        <circle cx="20" cy="20" r="8" fill="none" stroke="#ffffff" strokeWidth="3.5" />
+        <circle cx="20" cy="20" r="2.5" fill="#ffffff" />
+      </svg>
+    );
+  }
+
+  if (value === 'discard') {
+    return (
+      <svg className={sizeClass} viewBox="0 0 40 40" fill="none">
+        <path d="M10 12h20M13 12l2 20c0 2 2 3 4 3h2c2 0 4-1 4-3l2-20" stroke="#ffffff" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M16 12V8a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v4" stroke="#ffffff" strokeWidth="3.5" strokeLinecap="round" />
+        <path d="M10 12h20" stroke="#000000" strokeWidth="1.2" className="opacity-40" />
+      </svg>
+    );
+  }
+
+  if (value === 'double') {
+    return (
+      <svg className={sizeClass} viewBox="0 0 40 40" fill="none">
+        <text x="20" y="27" fontFamily="'Press Start 2P', monospace" fontSize="16" fill="#ffffff" textAnchor="middle" fontWeight="bold" stroke="black" strokeWidth="2.5" paintOrder="stroke fill">
+          x2
+        </text>
+      </svg>
+    );
+  }
+
+  if (value === 'strike') {
+    return (
+      <svg className={sizeClass} viewBox="0 0 40 40" fill="none">
+        <path d="M24 6L11 22h9l-2 12 13-16h-9l2-12z" fill="#ffffff" stroke="#ffffff" strokeWidth="1.5" strokeLinejoin="round" />
+        <path d="M24 6L11 22h9l-2 12 13-16h-9l2-12z" fill="none" stroke="#000000" strokeWidth="1" className="opacity-30" />
+      </svg>
+    );
+  }
+
+  if (value === 'freeze') {
+    return (
+      <svg className={sizeClass} viewBox="0 0 40 40" fill="none">
+        <path d="M20 6v28M6 20h28M10 10l20 20M10 30l20-20" stroke="#ffffff" strokeWidth="4.5" strokeLinecap="round" />
+        <circle cx="20" cy="20" r="3" fill="#ffffff" />
+        <circle cx="20" cy="20" r="3" fill="none" stroke="black" strokeWidth="1" className="opacity-30" />
+      </svg>
+    );
+  }
+
+  if (value === 'copy') {
+    return (
+      <svg className={sizeClass} viewBox="0 0 40 40" fill="none">
+        <rect x="14" y="14" width="16" height="18" rx="2" fill="none" stroke="#ffffff" strokeWidth="4.5" strokeLinejoin="round" />
+        <path d="M26 10V8a2 2 0 0 0-2-2H10a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h2" stroke="#ffffff" strokeWidth="4.5" strokeLinecap="round" />
+      </svg>
+    );
+  }
+
   return null;
 };
 
@@ -351,6 +450,12 @@ const renderPixelCardFront = (
         <rect x="13.5" y="17.5" width="5" height="9" fill={isDark ? '#000000' : '#ffffff'} stroke={designColor} strokeWidth="1.2" transform="rotate(25 16 22)" />
       </g>
     );
+  } else if (['swap', 'shield', 'bomb', 'spy', 'target2', 'discard', 'double', 'strike', 'freeze', 'copy'].includes(value)) {
+    centerElement = (
+      <svg x="6" y="14" width="20" height="20">
+        {renderActionSymbol(value, designColor, 'w-full h-full')}
+      </svg>
+    );
   } else {
     // Normal numbers 0-9
     centerElement = (
@@ -468,7 +573,7 @@ export const UnoCard: React.FC<UnoCardProps> = ({
   const color = (isDark && card.darkColor) ? card.darkColor : card.color;
   const value = (isDark && card.darkValue) ? card.darkValue : card.value;
   
-  const isSpecial = ['skip', 'reverse', 'draw2', 'wild', 'draw4', 'nont_dam', 'flip'].includes(value);
+  const isSpecial = ['skip', 'reverse', 'draw2', 'wild', 'draw4', 'nont_dam', 'flip', 'swap', 'shield', 'bomb', 'spy', 'target2', 'discard', 'double', 'strike', 'freeze', 'copy'].includes(value);
 
   const getCardDescription = (): string => {
     if (isDark) {
@@ -480,6 +585,16 @@ export const UnoCard: React.FC<UnoCardProps> = ({
         case 'draw4': return 'มหาภัยจั่ว 6 ใบ! เปลี่ยนสีหลักและให้คนถัดไปจั่ว 6 ใบพร้อมโดนข้ามตา ☠️';
         case 'flip': return 'พลิกมิติกระจก! สลับหน้าการ์ดทุกคนกลับสู่มิติโลกสว่าง (Light Side) 🌀';
         case 'nont_dam': return '👑 นนท์ดำสุดแรร์! สุ่มแรปแบทเทิลป่วนกระแทกหูรอบโต๊ะคนละ 1 ใบ หรือแลกการ์ดสุ่มวนขวา หรือโอนการ์ดช่วยคนจน!';
+        case 'swap': return 'สลับสับมือการ์ด! เลือกคู่แข่ง 1 คนเพื่อแลกไพ่ในมือทั้งหมดสะกดจิตมิติมืด ⇄';
+        case 'shield': return 'เกราะสะท้อนพลัง! วางเพื่อบล็อกผลทำโทษของการ์ดจั่วทั้งหมดทันที 🛡️';
+        case 'bomb': return 'ระเบิดกระจายวง! บังคับคู่แข่งทุกคนยกเว้นตัวคนลงให้จั่วคนละ 1 ใบ 💣';
+        case 'spy': return 'เนตรวงแหวนส่องมือ! เลือกดูไพ่ทั้งหมดในมือของเพื่อน 1 คนนาน 5 วินาที 👁️';
+        case 'target2': return 'สไนเปอร์เล็งยิง! เลือกจิ้มผู้เล่นคนไหนก็ได้ให้ต้องจั่วไพ่ทำโทษ 2 ใบ 🎯';
+        case 'discard': return 'ทิ้งสลัดคราบสี! ล้างการ์ดสีที่เลือกทั้งหมดในมือทิ้งออกกองทิ้ง 🗑️';
+        case 'double': return 'คอมโบเบิ้ลการ์ด! ลงแล้วสามารถกดเล่นเลขสีอะไรก็ทับได้ทันทีอีก 1 ใบ 2️⃣';
+        case 'strike': return 'จู่โจมมฤตยูแดง! ผู้เล่นคนถัดไปต้องสุ่มจั่วจนกว่าจะจั่วได้การ์ดสีแดง ⚡';
+        case 'freeze': return 'แช่แข็งมิติมืด! แช่แข็งข้ามตาคนถัดไปนาน 2 รอบการเล่น ❄️';
+        case 'copy': return 'เลียนแบบเวทมนตร์! คัดลอกความสามารถของการ์ดที่ลงก่อนหน้าใบนี้ทันที ⎘';
         default: return '';
       }
     } else {
@@ -491,6 +606,16 @@ export const UnoCard: React.FC<UnoCardProps> = ({
         case 'draw4': return 'จั่วโหด 4 ใบ! เปลี่ยนสีหลักและให้คนถัดไปจั่ว 4 ใบพร้อมโดนข้ามตา ☠️';
         case 'flip': return 'สลับมิติกระจก! พลิกการ์ดทุกคนเข้าสู่มิติโลกมืดเรืองแสง (Dark Side) 🌀';
         case 'nont_dam': return '👑 นนท์ดำสุดแรร์! สุ่มแรปแบทเทิลป่วนกระแทกหูรอบโต๊ะคนละ 1 ใบ หรือแลกการ์ดสุ่มวนขวา หรือโอนการ์ดช่วยคนจน!';
+        case 'swap': return 'สลับการ์ดในมือ! เลือกคู่แข่ง 1 คนเพื่อแลกไพ่ในมือทั้งหมด ⇄';
+        case 'shield': return 'โล่ห์ป้องกันการจั่ว! วางเพื่อบล็อกผลทำโทษของการ์ดจั่วทั้งหมดทันที 🛡️';
+        case 'bomb': return 'ระเบิดการ์ด! บังคับคู่แข่งทุกคนยกเว้นตัวคนลงให้จั่วคนละ 1 ใบ 💣';
+        case 'spy': return 'ส่องการ์ดคู่แข่ง! เลือกดูไพ่ทั้งหมดในมือของเพื่อน 1 คน 👁️';
+        case 'target2': return 'เล็งเป้าหมาย! เลือกผู้เล่น 1 คนให้ต้องจั่วไพ่ทำโทษ 2 ใบ 🎯';
+        case 'discard': return 'ทิ้งสลัดคราบสี! ล้างการ์ดสีที่เลือกทั้งหมดในมือทิ้งออกกองทิ้ง 🗑️';
+        case 'double': return 'เล่นคู่เบิ้ลการ์ด! ลงแล้วสามารถกดเล่นเลขสีอะไรก็ทับได้ทันทีอีก 1 ใบ 2️⃣';
+        case 'strike': return 'จู่โจมสายฟ้า! ผู้เล่นคนถัดไปต้องจั่วไพ่เรื่อยๆ จนกว่าจะได้สีแดง ⚡';
+        case 'freeze': return 'แช่แข็งคู่แข่ง! ข้ามตาคนถัดไปนาน 2 รอบการเล่น ❄️';
+        case 'copy': return 'ก๊อปปี้สกิล! คัดลอกความสามารถของการ์ดที่ลงก่อนหน้าใบนี้ทันที ⎘';
         default: return '';
       }
     }
@@ -629,6 +754,16 @@ export const UnoCard: React.FC<UnoCardProps> = ({
       case 'wild': return '❖';
       case 'draw4': return '+4';
       case 'flip': return '🌀';
+      case 'swap': return '⇄';
+      case 'shield': return '🛡️';
+      case 'bomb': return '💣';
+      case 'spy': return '👁️';
+      case 'target2': return '🎯';
+      case 'discard': return '🗑️';
+      case 'double': return 'x2';
+      case 'strike': return '⚡';
+      case 'freeze': return '❄️';
+      case 'copy': return '⎘';
       default: return v;
     }
   };
@@ -729,7 +864,7 @@ export const UnoCard: React.FC<UnoCardProps> = ({
   }
 
   // --- RENDER CLASSIC HIGH FIDELITY RETRO UNO CARD ('md' or 'lg') IN NEON THEME ---
-  const isSpecialAction = ['skip', 'reverse', 'draw2', 'wild', 'draw4', 'flip'].includes(value);
+  const isSpecialAction = ['skip', 'reverse', 'draw2', 'wild', 'draw4', 'flip', 'swap', 'shield', 'bomb', 'spy', 'target2', 'discard', 'double', 'strike', 'freeze', 'copy'].includes(value);
 
   return (
     <div className="relative group">

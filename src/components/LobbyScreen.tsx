@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { RefreshCw, AlertTriangle, Users, Globe, Play } from 'lucide-react';
+import { RefreshCw, AlertTriangle, Users, Globe, Play, Copy, Check } from 'lucide-react';
 import { NontDamCard } from './NontDamCard';
 import { UnoCard } from './UnoCard';
 import { CardColor } from '../types';
@@ -41,6 +41,8 @@ interface LobbyScreenProps {
   botProfiles: BotProfile[];
   onlineServerAddr: string;
   setOnlineServerAddr: (addr: string) => void;
+  botsEnabled: boolean;
+  onToggleBots: (enabled: boolean) => void;
   // Setters
   setLobbyMode: (mode: 'classic' | 'friends' | 'online_mock') => void;
   setLobbySlots: React.Dispatch<React.SetStateAction<LobbySlot[]>>;
@@ -69,8 +71,24 @@ export function LobbyScreen(props: LobbyScreenProps) {
     setLobbyMode, setLobbySlots, setUserName, setGameSpeed, setIsFlipMode,
     setCardTheme, setShowcaseQuoteIndex, setRoomCodeInput, setShowHowTo,
     playCardSound, playNontDamSound, connectWebSocket, disconnectWebSocket,
-    handleMainStartMatch, wsRef
+    handleMainStartMatch, wsRef, botsEnabled, onToggleBots
   } = props;
+
+  const [copied, setCopied] = React.useState(false);
+
+  const handleCopyCode = () => {
+    if (onlineRoomCode) {
+      navigator.clipboard.writeText(onlineRoomCode)
+        .then(() => {
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2000);
+        })
+        .catch((err) => {
+          console.error('Failed to copy code: ', err);
+          alert(`รหัสห้องคือ: ${onlineRoomCode}`);
+        });
+    }
+  };
 
   const avatarList = ['\u{1F451}', '\u{1F60E}', '\u{1F921}', '\u{1F98A}', '\u{1F43C}', '\u{1F42E}', '\u{1F430}', '\u{1F984}', '\u{1F981}', '\u{1F438}', '\u{1F996}', '\u{1F47B}', '\u{1F47D}'];
 
@@ -387,8 +405,28 @@ export function LobbyScreen(props: LobbyScreenProps) {
                       <div className="flex justify-between items-center border-b-4 border-slate-800 pb-4">
                         <div>
                           <label className="arcade-label !text-emerald-400 animate-pulse">รหัสผ่านห้อง (ส่งให้เพื่อน)</label>
-                          <div className="text-4xl font-black arcade-text-highlight tracking-[8px] font-mono drop-shadow-[0_0_10px_rgba(255,255,255,0.5)]">
-                            {onlineRoomCode}
+                          <div className="flex items-center gap-3">
+                            <div className="text-4xl font-black arcade-text-highlight tracking-[8px] font-mono drop-shadow-[0_0_10px_rgba(255,255,255,0.5)]">
+                              {onlineRoomCode}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={handleCopyCode}
+                              className="p-2 border border-slate-750 bg-slate-900 text-slate-300 hover:text-white rounded-lg transition-all hover:bg-slate-800 active:scale-95 shrink-0 flex items-center gap-1.5 text-xs font-mono font-bold"
+                              title="คัดลอกรหัสห้อง"
+                            >
+                              {copied ? (
+                                <>
+                                  <Check size={14} className="text-emerald-400" />
+                                  <span className="text-emerald-400">คัดลอกแล้ว!</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Copy size={14} />
+                                  <span>คัดลอก</span>
+                                </>
+                              )}
+                            </button>
                           </div>
                         </div>
                         <button 
@@ -413,6 +451,42 @@ export function LobbyScreen(props: LobbyScreenProps) {
                             <span className="text-xs text-slate-500 font-bold uppercase font-mono tracking-widest">รอผู้เล่น...</span>
                           </div>
                         ))}
+                      </div>
+
+                      {/* Bot Toggle settings in lobby */}
+                      <div className="mt-4 p-4 border-2 border-slate-800 bg-black/60 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-4">
+                        <div className="text-left">
+                          <label className="arcade-label !mb-0.5 text-slate-350">ระบบบอทช่วยเหลือ (Bots)</label>
+                          <span className="text-[10px] text-slate-500 block font-mono">
+                            {onlineIsHost 
+                              ? "เมื่อเปิด: บอทจะเข้าเติมห้องให้ครบ 4 คนเมื่อเริ่มเกม / เมื่อปิด: เล่นเฉพาะผู้เล่นจริงเท่านั้น" 
+                              : "บอทเปิด/ปิด ควบคุมโดยหัวหน้าห้อง"}
+                          </span>
+                        </div>
+                        <div className="arcade-toggle-group shrink-0 !border-slate-800">
+                          <button
+                            type="button"
+                            disabled={!onlineIsHost}
+                            onClick={() => {
+                              playCardSound();
+                              onToggleBots(false);
+                            }}
+                            className={`arcade-toggle-btn !px-4 !py-2 ${!botsEnabled ? 'active' : ''} ${!onlineIsHost ? 'opacity-60 cursor-not-allowed' : ''}`}
+                          >
+                            ปิดบอท
+                          </button>
+                          <button
+                            type="button"
+                            disabled={!onlineIsHost}
+                            onClick={() => {
+                              playCardSound();
+                              onToggleBots(true);
+                            }}
+                            className={`arcade-toggle-btn !px-4 !py-2 ${botsEnabled ? 'active' : ''} ${!onlineIsHost ? 'opacity-60 cursor-not-allowed' : ''}`}
+                          >
+                            เปิดบอท
+                          </button>
+                        </div>
                       </div>
 
                       <div className="mt-4">

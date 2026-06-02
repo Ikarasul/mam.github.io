@@ -32,6 +32,21 @@ export function generateDeck(isFlipMode = false): Card[] {
       }
     });
 
+    // Special colored skills (2 cards per skill per specific color)
+    if (color === 'yellow') {
+      deck.push({ id: nextId(), color: 'yellow', value: 'double' });
+      deck.push({ id: nextId(), color: 'yellow', value: 'double' });
+    } else if (color === 'red') {
+      deck.push({ id: nextId(), color: 'red', value: 'strike' });
+      deck.push({ id: nextId(), color: 'red', value: 'strike' });
+    } else if (color === 'blue') {
+      deck.push({ id: nextId(), color: 'blue', value: 'freeze' });
+      deck.push({ id: nextId(), color: 'blue', value: 'freeze' });
+    } else if (color === 'green') {
+      deck.push({ id: nextId(), color: 'green', value: 'copy' });
+      deck.push({ id: nextId(), color: 'green', value: 'copy' });
+    }
+
     // If flip mode is enabled, add 3 Flip action cards per color
     if (isFlipMode) {
       for (let i = 0; i < 3; i++) {
@@ -40,19 +55,26 @@ export function generateDeck(isFlipMode = false): Card[] {
     }
   });
 
-  // Add 8 'wild' and 8 'draw4' cards, and 10 special 'nont_dam' cards
-  for (let i = 0; i < 8; i++) {
+  // Add standard wild cards
+  for (let i = 0; i < 6; i++) {
     deck.push({ id: nextId(), color: 'wild', value: 'wild' });
     deck.push({ id: nextId(), color: 'wild', value: 'draw4' });
   }
-  for (let i = 0; i < 10; i++) {
+  for (let i = 0; i < 4; i++) {
     deck.push({ id: nextId(), color: 'wild', value: 'nont_dam' });
   }
 
+  // Add 2 of each new wild card
+  const newWilds: CardValue[] = ['swap', 'shield', 'bomb', 'spy', 'target2', 'discard'];
+  newWilds.forEach(val => {
+    deck.push({ id: nextId(), color: 'wild', value: val });
+    deck.push({ id: nextId(), color: 'wild', value: val });
+  });
+
   if (isFlipMode) {
     // Group deck cards by type
-    const numbers = deck.filter(c => c.color !== 'wild' && c.value !== 'skip' && c.value !== 'reverse' && c.value !== 'draw2' && c.value !== 'flip');
-    const actions = deck.filter(c => c.value === 'skip' || c.value === 'reverse' || c.value === 'draw2' || c.value === 'flip');
+    const numbers = deck.filter(c => c.color !== 'wild' && !['skip', 'reverse', 'draw2', 'flip', 'double', 'strike', 'freeze', 'copy'].includes(c.value));
+    const actions = deck.filter(c => ['skip', 'reverse', 'draw2', 'flip', 'double', 'strike', 'freeze', 'copy'].includes(c.value));
     const wilds = deck.filter(c => c.color === 'wild');
 
     // Helper to shuffle a copied list of pairs
@@ -74,11 +96,11 @@ export function generateDeck(isFlipMode = false): Card[] {
     let wildIdx = 0;
 
     deck.forEach(card => {
-      if (card.color !== 'wild' && card.value !== 'skip' && card.value !== 'reverse' && card.value !== 'draw2' && card.value !== 'flip') {
+      if (card.color !== 'wild' && !['skip', 'reverse', 'draw2', 'flip', 'double', 'strike', 'freeze', 'copy'].includes(card.value)) {
         const pair = shuffledNumbers[numIdx++];
         card.darkColor = pair.color;
         card.darkValue = pair.value;
-      } else if (card.value === 'skip' || card.value === 'reverse' || card.value === 'draw2' || card.value === 'flip') {
+      } else if (['skip', 'reverse', 'draw2', 'flip', 'double', 'strike', 'freeze', 'copy'].includes(card.value)) {
         const pair = shuffledActions[actIdx++];
         card.darkColor = pair.color;
         card.darkValue = pair.value;
@@ -161,6 +183,16 @@ export function getCardValueThai(value: CardValue): string {
     case 'draw4': return 'เปลี่ยนสี +4 (Wild Draw Four)';
     case 'nont_dam': return '👑 นนท์ดำซูเปอร์ป่วน (Nont-Dam Wild)';
     case 'flip': return 'สลับฝั่งโลกกระจก (Flip Side Card) 🌀';
+    case 'swap': return 'สลับการ์ดทั้งหมด (Wild Swap) ⇄';
+    case 'shield': return 'ป้องกันการจั่ว (Wild Shield) 🛡️';
+    case 'bomb': return 'ระเบิดจั่วรอบวง (Wild Bomb) 💣';
+    case 'spy': return 'ส่องการ์ดเพื่อน (Wild Spy) 👁️';
+    case 'target2': return 'เล็งเป้าจั่ว 2 (Wild Target +2) 🎯';
+    case 'discard': return 'ทิ้งสีหมดมือ (Wild Discard) 🗑️';
+    case 'double': return 'เล่นคู่เบิ้ลการ์ด (Yellow Double) 2️⃣';
+    case 'strike': return 'จู่โจมสายฟ้าแลบ (Red Strike) ⚡';
+    case 'freeze': return 'แช่แข็งกุมขมับ (Blue Freeze) ❄️';
+    case 'copy': return 'เลียนแบบการ์ดก่อนหน้า (Green Copy) ⎘';
     default: return value;
   }
 }

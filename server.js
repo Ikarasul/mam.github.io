@@ -110,6 +110,265 @@ function executeNontDamEffect(room, activePlayer, step) {
   return { logMsg, nextStep };
 }
 
+function getRandomTargetPlayer(room, activePlayerId) {
+  const others = room.players.filter(p => p.id !== activePlayerId);
+  if (others.length === 0) return null;
+  return others[Math.floor(Math.random() * others.length)].id;
+}
+
+function getRandomColorInHand(player, flipSide) {
+  const colors = ['red', 'blue', 'green', 'yellow'];
+  const validColors = player.cards
+    .map(c => getCardColor(c, flipSide))
+    .filter(col => col !== 'wild');
+  if (validColors.length === 0) return colors[Math.floor(Math.random() * colors.length)];
+  return validColors[Math.floor(Math.random() * validColors.length)];
+}
+
+function advanceTurn(room, step = 1) {
+  let attempts = 0;
+  const maxAttempts = room.players.length;
+  
+  room.currentPlayerIndex = (room.currentPlayerIndex + (step * room.direction) + room.players.length * 10) % room.players.length;
+  
+  while (attempts < maxAttempts) {
+    const nextPlayer = room.players[room.currentPlayerIndex];
+    if (room.frozenTurns && room.frozenTurns[nextPlayer.id] > 0) {
+      room.frozenTurns[nextPlayer.id]--;
+      room.logs.push({
+        id: `log-${Date.now()}`,
+        timestamp: new Date().toLocaleTimeString('th-TH'),
+        message: `❄️ ${nextPlayer.name} ถูกแช่แข็ง ข้ามตาเล่นไป! (เหลืออีก ${room.frozenTurns[nextPlayer.id]} รอบ)`,
+        type: 'skip'
+      });
+      room.currentPlayerIndex = (room.currentPlayerIndex + room.direction + room.players.length) % room.players.length;
+      attempts++;
+    } else {
+      break;
+    }
+  }
+}
+
+function applyCardEffects(room, card, activePlayer, payload) {
+  const cColor = getCardColor(card, room.flipSide);
+  const cValue = getCardValue(card, room.flipSide);
+  
+  let targetValue = cValue;
+  let logMsg = `${activePlayer.name} วางการ์ด [${cColor} ${cValue}]`;
+  if (cValue === 'copy' && room.discardPile.length > 0) {
+    const prevCard = room.discardPile[0];
+    targetValue = getCardValue(prevCard, room.flipSide);
+    logMsg += ` (เลียนแบบความสามารถของ [${getCardColor(prevCard, room.flipSide)} ${targetValue}])`;
+  }
+
+  let nextColor = cColor;
+  let nextValue = cValue;
+  let step = 1;
+
+  // Reverse card
+  if (targetValue === 'reverse') {
+    room.direction = room.direction === 1 ? -1 : 1;
+    logMsg += ` 🔄 ย้อนทิศทางของเกม!`;
+  }
+
+  // Skip card
+  if (targetValue === 'skip') {
+    if (room.flipSide === 'dark') {
+      logMsg += ` 🚫 ข้ามหมดทุกคน! ได้เล่นซ้ำอีกตา!`;
+      step = 4;
+    } else {
+      const nextIndex = (room.currentPlayerIndex + room.direction + room.players.length) % room.players.length;
+      logMsg += ` 🚫 ข้ามตาของ ${room.players[nextIndex].name}!`;
+      step = 2;
+    }
+  }
+
+  // Draw 2 (+5 in Dark)
+  if (targetValue === 'draw2') {
+    const victimIdx = (room.currentPlayerIndex + room.direction + room.players.length) % room.players.length;
+    const victim = room.players[victimIdx];
+    
+    const shieldIdx = victim.cards.findIndex(c => getCardValue(c, room.flipSide) === 'shield');
+    if (shieldIdx !== -1) {
+      victim.cards.splice(shieldIdx, 1);
+      logMsg += ` ➕ โทษจั่วทำร้ายสะท้อนใส่ ${victim.name} แต่ถูกบล็อกด้วยการ์ดป้องกัน 🛡️!`;
+      step = 2;
+    } else {
+      const penalty = room.flipSide === 'dark' ? 5 : 2;
+      const cards = [];
+      for (let i = 0; i < penalty; i++) {
+        const c = drawCardFromServerDeck(room);
+        if (c) cards.push(c);
+      }
+      victim.cards.push(...cards);
+      logMsg += ` ➕${penalty} โทษทัณฑ์! ${victim.name} จั่ว ${penalty} ใบและถูกข้าม!`;
+      step = 2;
+    }
+  }
+
+  // Flip card
+  if (targetValue === 'flip') {
+    room.flipSide = room.flipSide === 'light' ? 'dark' : 'light';
+    logMsg += room.flipSide === 'dark' 
+      ? ` 🌀 พลิกมิติเข้าสู่ [โลกกระจกฝั่งมืด]! 🌌👾`
+      : ` 🌀 พลิกกลับเข้าสู่ [โลกสว่างปกติ]! ☀️🌈`;
+  }
+
+  // Wild cards
+  if (cColor === 'wild') {
+    let chosenColor = payload.chosenWildColor;
+    if (!chosenColor && activePlayer.isBot) {
+      // Choose color bot holds the most
+      const counts = { red: 0, blue: 0, green: 0, yellow: 0 };
+      activePlayer.cards.forEach(c => { 
+        const col = getCardColor(c, room.flipSide);
+        if (col !== 'wild') counts[col]++; 
+      });
+      let bestColor = 'red';
+      let max = -1;
+      Object.keys(counts).forEach(col => {
+        if (counts[col] > max) {
+          max = counts[col];
+          bestColor = col;
+        }
+      });
+      chosenColor = bestColor;
+    }
+    if (chosenColor) {
+      nextColor = chosenColor;
+      logMsg += ` 🎨 เลือกสีถัดไปเป็น [${chosenColor}]`;
+    }
+
+    if (targetValue === 'draw4') {
+      const victimIdx = (room.currentPlayerIndex + room.direction + room.players.length) % room.players.length;
+      const victim = room.players[victimIdx];
+      
+      const shieldIdx = victim.cards.findIndex(c => getCardValue(c, room.flipSide) === 'shield');
+      if (shieldIdx !== -1) {
+        victim.cards.splice(shieldIdx, 1);
+        logMsg += ` ☠️ เปลี่ยนสีและสาดโทษใส่ ${victim.name} แต่ถูกบล็อกด้วยการ์ดป้องกัน 🛡️!`;
+        step = 2;
+      } else {
+        const penalty = room.flipSide === 'dark' ? 6 : 4;
+        const cards = [];
+        for (let i = 0; i < penalty; i++) {
+          const c = drawCardFromServerDeck(room);
+          if (c) cards.push(c);
+        }
+        victim.cards.push(...cards);
+        logMsg += ` ☠️ เปลี่ยนสีและสาด +${penalty}! ${victim.name} จั่ว ${penalty} ใบและถูกข้าม!`;
+        step = 2;
+      }
+    } else if (targetValue === 'nont_dam') {
+      const result = executeNontDamEffect(room, activePlayer, step);
+      logMsg += result.logMsg;
+      step = result.nextStep;
+    } else if (targetValue === 'swap') {
+      const targetPlayerId = payload.targetPlayerId || (activePlayer.isBot ? getRandomTargetPlayer(room, activePlayer.id) : null);
+      const targetPlayer = room.players.find(p => p.id === targetPlayerId);
+      if (targetPlayer) {
+        const activeHand = [...activePlayer.cards];
+        activePlayer.cards = [...targetPlayer.cards];
+        targetPlayer.cards = activeHand;
+        logMsg += ` ⇄ สลับการ์ดทั้งหมดในมือกับ [${targetPlayer.name}]!`;
+      }
+    } else if (targetValue === 'spy') {
+      const targetPlayerId = payload.targetPlayerId || (activePlayer.isBot ? getRandomTargetPlayer(room, activePlayer.id) : null);
+      const targetPlayer = room.players.find(p => p.id === targetPlayerId);
+      if (targetPlayer) {
+        logMsg += ` 👁️ แอบส่องการ์ดในมือของ [${targetPlayer.name}]!`;
+        if (!activePlayer.isBot && activePlayer.ws) {
+          sendToClient(activePlayer.ws, 'SPY_RESULT', {
+            targetId: targetPlayer.id,
+            targetName: targetPlayer.name,
+            cards: targetPlayer.cards
+          });
+        }
+      }
+    } else if (targetValue === 'target2') {
+      const targetPlayerId = payload.targetPlayerId || (activePlayer.isBot ? getRandomTargetPlayer(room, activePlayer.id) : null);
+      const targetPlayer = room.players.find(p => p.id === targetPlayerId);
+      if (targetPlayer) {
+        const shieldIdx = targetPlayer.cards.findIndex(c => getCardValue(c, room.flipSide) === 'shield');
+        if (shieldIdx !== -1) {
+          targetPlayer.cards.splice(shieldIdx, 1);
+          logMsg += ` 🎯 เล็งยิง [${targetPlayer.name}] แต่ถูกบล็อกด้วยการ์ดป้องกัน 🛡️!`;
+        } else {
+          const cards = [];
+          for (let i = 0; i < 2; i++) {
+            const c = drawCardFromServerDeck(room);
+            if (c) cards.push(c);
+          }
+          targetPlayer.cards.push(...cards);
+          logMsg += ` 🎯 เล็งยิงใส่ [${targetPlayer.name}]! ต้องจั่วการ์ด 2 ใบ!`;
+        }
+      }
+    } else if (targetValue === 'discard') {
+      const discardColor = payload.chosenDiscardColor || (activePlayer.isBot ? getRandomColorInHand(activePlayer, room.flipSide) : 'red');
+      const beforeCount = activePlayer.cards.length;
+      activePlayer.cards = activePlayer.cards.filter(c => getCardColor(c, room.flipSide) !== discardColor);
+      const discardedCount = beforeCount - activePlayer.cards.length;
+      logMsg += ` 🗑️ ทิ้งการ์ดทั้งหมดที่เป็นสี [${discardColor}] จำนวน ${discardedCount} ใบ!`;
+    } else if (targetValue === 'bomb') {
+      logMsg += ` 💣 ระเบิดจั่วกระจายวง! ทุกคนยกเว้นคนลงต้องจั่วการ์ดคนละ 1 ใบ!`;
+      room.players.forEach(p => {
+        if (p.id !== activePlayer.id) {
+          const c = drawCardFromServerDeck(room);
+          if (c) p.cards.push(c);
+        }
+      });
+    }
+  }
+
+  // Special colored skills (double, strike, freeze)
+  if (targetValue === 'double') {
+    logMsg += ` 2️⃣ รัน Double! ผู้เล่นได้สิทธิ์ลงการ์ดเลขใดก็ได้ทับเพิ่มอีก 1 ใบในตานี้!`;
+    step = 0;
+  }
+
+  if (targetValue === 'strike') {
+    const victimIdx = (room.currentPlayerIndex + room.direction + room.players.length) % room.players.length;
+    const victim = room.players[victimIdx];
+    
+    const shieldIdx = victim.cards.findIndex(c => getCardValue(c, room.flipSide) === 'shield');
+    if (shieldIdx !== -1) {
+      victim.cards.splice(shieldIdx, 1);
+      logMsg += ` ⚡ Strike จู่โจมสายฟ้าแลบใส่ ${victim.name} แต่ถูกบล็อกด้วยการ์ดป้องกัน 🛡️!`;
+      step = 2;
+    } else {
+      const drawn = [];
+      let foundRed = false;
+      let drawLimit = 20;
+      while (!foundRed && drawLimit > 0) {
+        const c = drawCardFromServerDeck(room);
+        if (!c) break;
+        drawn.push(c);
+        if (getCardColor(c, room.flipSide) === 'red') {
+          foundRed = true;
+        }
+        drawLimit--;
+      }
+      victim.cards.push(...drawn);
+      logMsg += ` ⚡ Strike จู่โจมสายฟ้าแลบ! ${victim.name} ต้องจั่วการ์ดสะสม ${drawn.length} ใบจนกว่าจะพบสีแดงและถูกข้าม!`;
+      step = 2;
+    }
+  }
+
+  if (targetValue === 'freeze') {
+    const victimIdx = (room.currentPlayerIndex + room.direction + room.players.length) % room.players.length;
+    const victim = room.players[victimIdx];
+    room.frozenTurns[victim.id] = (room.frozenTurns[victim.id] || 0) + 2;
+    logMsg += ` ❄️ แช่แข็งกักขังการขยับของ ${victim.name} นาน 2 รอบบอร์ด!`;
+    step = 2;
+  }
+
+  if (targetValue === 'shield') {
+    logMsg += ` 🛡️ วางโล่ป้องกันการจั่ว (ไม่มีผลจั่วสะสมขณะนี้)`;
+  }
+
+  return { logMsg, nextColor, nextValue, step };
+}
+
 // Generate the card deck
 function generateServerDeck(isFlipMode = false) {
   const colors = ['red', 'blue', 'green', 'yellow'];
@@ -126,13 +385,30 @@ function generateServerDeck(isFlipMode = false) {
         deck.push({ id: nextId(), color, value });
       }
     });
+
+    // Special colored skills (2 cards per skill per specific color)
+    if (color === 'yellow') {
+      deck.push({ id: nextId(), color: 'yellow', value: 'double' });
+      deck.push({ id: nextId(), color: 'yellow', value: 'double' });
+    } else if (color === 'red') {
+      deck.push({ id: nextId(), color: 'red', value: 'strike' });
+      deck.push({ id: nextId(), color: 'red', value: 'strike' });
+    } else if (color === 'blue') {
+      deck.push({ id: nextId(), color: 'blue', value: 'freeze' });
+      deck.push({ id: nextId(), color: 'blue', value: 'freeze' });
+    } else if (color === 'green') {
+      deck.push({ id: nextId(), color: 'green', value: 'copy' });
+      deck.push({ id: nextId(), color: 'green', value: 'copy' });
+    }
+
     if (isFlipMode) {
-      deck.push({ id: nextId(), color, value: 'flip' });
-      deck.push({ id: nextId(), color, value: 'flip' });
+      deck.push({ id: nextId(), color: color, value: 'flip' });
+      deck.push({ id: nextId(), color: color, value: 'flip' });
     }
   });
 
-  for (let i = 0; i < 8; i++) {
+  // Add standard wild cards
+  for (let i = 0; i < 6; i++) {
     deck.push({ id: nextId(), color: 'wild', value: 'wild' });
     deck.push({ id: nextId(), color: 'wild', value: 'draw4' });
   }
@@ -140,10 +416,16 @@ function generateServerDeck(isFlipMode = false) {
     deck.push({ id: nextId(), color: 'wild', value: 'nont_dam' });
   }
 
-  // If flip mode, assign dark side properties grouped by category (aligning with offline client logic)
+  // Add 2 of each new wild card
+  const newWilds = ['swap', 'shield', 'bomb', 'spy', 'target2', 'discard'];
+  newWilds.forEach(val => {
+    deck.push({ id: nextId(), color: 'wild', value: val });
+    deck.push({ id: nextId(), color: 'wild', value: val });
+  });
+
   if (isFlipMode) {
-    const numbers = deck.filter(c => c.color !== 'wild' && c.value !== 'skip' && c.value !== 'reverse' && c.value !== 'draw2' && c.value !== 'flip');
-    const actions = deck.filter(c => c.value === 'skip' || c.value === 'reverse' || c.value === 'draw2' || c.value === 'flip');
+    const numbers = deck.filter(c => c.color !== 'wild' && !['skip', 'reverse', 'draw2', 'flip', 'double', 'strike', 'freeze', 'copy'].includes(c.value));
+    const actions = deck.filter(c => ['skip', 'reverse', 'draw2', 'flip', 'double', 'strike', 'freeze', 'copy'].includes(c.value));
     const wilds = deck.filter(c => c.color === 'wild');
 
     const shufflePairs = (arr) => {
@@ -164,11 +446,11 @@ function generateServerDeck(isFlipMode = false) {
     let wildIdx = 0;
 
     deck.forEach(card => {
-      if (card.color !== 'wild' && card.value !== 'skip' && card.value !== 'reverse' && card.value !== 'draw2' && card.value !== 'flip') {
+      if (card.color !== 'wild' && !['skip', 'reverse', 'draw2', 'flip', 'double', 'strike', 'freeze', 'copy'].includes(card.value)) {
         const pair = shuffledNumbers[numIdx++];
         card.darkColor = pair.color;
         card.darkValue = pair.value;
-      } else if (card.value === 'skip' || card.value === 'reverse' || card.value === 'draw2' || card.value === 'flip') {
+      } else if (['skip', 'reverse', 'draw2', 'flip', 'double', 'strike', 'freeze', 'copy'].includes(card.value)) {
         const pair = shuffledActions[actIdx++];
         card.darkColor = pair.color;
         card.darkValue = pair.value;
@@ -249,7 +531,9 @@ wss.on('connection', (ws) => {
             logs: [],
             hasSaidUno: {},
             wildColorSelectionCard: null,
-            flipSide: 'light'
+            flipSide: 'light',
+            botsEnabled: true,
+            frozenTurns: {}
           };
 
           rooms.set(code, roomState);
@@ -301,14 +585,36 @@ wss.on('connection', (ws) => {
           broadcastToRoom(code, 'ROOM_UPDATED', {
             players: getCleanPlayers(room.players),
             isFlipMode: room.isFlipMode,
-            cardTheme: room.cardTheme
+            cardTheme: room.cardTheme,
+            botsEnabled: room.botsEnabled
           });
 
           // Confirm join to client
           sendToClient(ws, 'JOIN_SUCCESS', {
             roomCode: code,
             playerId: playerId,
-            players: getCleanPlayers(room.players)
+            players: getCleanPlayers(room.players),
+            botsEnabled: room.botsEnabled
+          });
+          break;
+        }
+
+        case 'TOGGLE_BOTS': {
+          const code = playerRoomCode;
+          if (!code || !rooms.has(code)) return;
+          const room = rooms.get(code);
+
+          const player = room.players.find(p => p.id === playerId);
+          if (!player || !player.isHost) return;
+
+          const { enabled } = payload;
+          room.botsEnabled = !!enabled;
+
+          broadcastToRoom(code, 'ROOM_UPDATED', {
+            players: getCleanPlayers(room.players),
+            isFlipMode: room.isFlipMode,
+            cardTheme: room.cardTheme,
+            botsEnabled: room.botsEnabled
           });
           break;
         }
@@ -321,20 +627,28 @@ wss.on('connection', (ws) => {
           const player = room.players.find(p => p.id === playerId);
           if (!player || !player.isHost) return;
 
-          // Fill rest with bots up to 4 players
-          const needed = 4 - room.players.length;
-          const botNames = ['สมชาย 🤖', 'สมศรี 🦊', 'มานะ 🐼'];
-          const botAvatars = ['🤖', '🦊', '🐼'];
-          
-          for (let i = 0; i < needed; i++) {
-            room.players.push({
-              id: `bot-${Date.now()}-${i}`,
-              name: botNames[i],
-              avatar: botAvatars[i],
-              cards: [],
-              isBot: true,
-              isHost: false
-            });
+          // Check if at least 2 players are present when bots are disabled
+          if (!room.botsEnabled && room.players.length < 2) {
+            sendToClient(ws, 'ERROR', { message: 'ต้องมีผู้เล่นอย่างน้อย 2 คนเพื่อเริ่มเกม! ❌' });
+            return;
+          }
+
+          // Fill rest with bots up to 4 players if bots are enabled
+          if (room.botsEnabled) {
+            const needed = 4 - room.players.length;
+            const botNames = ['สมชาย 🤖', 'สมศรี 🦊', 'มานะ 🐼'];
+            const botAvatars = ['🤖', '🦊', '🐼'];
+            
+            for (let i = 0; i < needed; i++) {
+              room.players.push({
+                id: `bot-${Date.now()}-${i}`,
+                name: botNames[i],
+                avatar: botAvatars[i],
+                cards: [],
+                isBot: true,
+                isHost: false
+              });
+            }
           }
 
           let deck = generateServerDeck(room.isFlipMode);
@@ -366,6 +680,7 @@ wss.on('connection', (ws) => {
           room.winnerId = null;
           room.flipSide = 'light';
           room.hasSaidUno = {};
+          room.frozenTurns = {};
           room.logs = [
             {
               id: `log-${Date.now()}`,
@@ -404,79 +719,7 @@ wss.on('connection', (ws) => {
           // Remove card from player hand
           activePlayer.cards.splice(cardIndex, 1);
 
-          const cColor = getCardColor(card, room.flipSide);
-          const cValue = getCardValue(card, room.flipSide);
-
-          let logMsg = `${activePlayer.name} วางการ์ด [${cColor} ${cValue}]`;
-          let nextColor = cColor;
-          let nextValue = cValue;
-          let step = 1;
-
-          // Reverse card
-          if (cValue === 'reverse') {
-            room.direction = room.direction === 1 ? -1 : 1;
-            logMsg += ` 🔄 ย้อนทิศทางของเกม!`;
-          }
-
-          // Skip card
-          if (cValue === 'skip') {
-            if (room.flipSide === 'dark') {
-              logMsg += ` 🚫 ข้ามหมดทุกคน! ได้เล่นซ้ำอีกตา!`;
-              step = 4;
-            } else {
-              const nextIndex = (room.currentPlayerIndex + room.direction + 4) % 4;
-              logMsg += ` 🚫 ข้ามตาของ ${room.players[nextIndex].name}!`;
-              step = 2;
-            }
-          }
-
-          // Draw 2 (+5 in Dark)
-          if (cValue === 'draw2') {
-            const victimIdx = (room.currentPlayerIndex + room.direction + 4) % 4;
-            const victim = room.players[victimIdx];
-            const penalty = room.flipSide === 'dark' ? 5 : 2;
-            const cards = [];
-            for (let i = 0; i < penalty; i++) {
-              const c = drawCardFromServerDeck(room);
-              if (c) cards.push(c);
-            }
-            victim.cards.push(...cards);
-            logMsg += ` ➕${penalty} โทษทัณฑ์! ${victim.name} จั่ว ${penalty} ใบและถูกข้าม!`;
-            step = 2;
-          }
-
-          // Flip card
-          if (cValue === 'flip') {
-            room.flipSide = room.flipSide === 'light' ? 'dark' : 'light';
-            logMsg += room.flipSide === 'dark' 
-              ? ` 🌀 พลิกมิติเข้าสู่ [โลกกระจกฝั่งมืด]! 🌌👾`
-              : ` 🌀 พลิกกลับเข้าสู่ [โลกสว่างปกติ]! ☀️🌈`;
-          }
-
-          // Wild Color Choice or draw4 (+6 in Dark) or nont_dam chaotic effects
-          if (cColor === 'wild') {
-            if (chosenWildColor) {
-              nextColor = chosenWildColor;
-              logMsg += ` 🎨 เลือกสีถัดไปเป็น [${chosenWildColor}]`;
-            }
-            if (cValue === 'draw4') {
-              const victimIdx = (room.currentPlayerIndex + room.direction + 4) % 4;
-              const victim = room.players[victimIdx];
-              const penalty = room.flipSide === 'dark' ? 6 : 4;
-              const cards = [];
-              for (let i = 0; i < penalty; i++) {
-                const c = drawCardFromServerDeck(room);
-                if (c) cards.push(c);
-              }
-              victim.cards.push(...cards);
-              logMsg += ` ☠️ เปลี่ยนสีและสาด +${penalty}! ${victim.name} จั่ว ${penalty} ใบและถูกข้าม!`;
-              step = 2;
-            } else if (cValue === 'nont_dam') {
-              const result = executeNontDamEffect(room, activePlayer, step);
-              logMsg += result.logMsg;
-              step = result.nextStep;
-            }
-          }
+          let { logMsg, nextColor, nextValue, step } = applyCardEffects(room, card, activePlayer, payload);
 
           // Check Win
           if (activePlayer.cards.length === 0) {
@@ -502,7 +745,7 @@ wss.on('connection', (ws) => {
 
           // Move current player index
           if (room.status === 'playing') {
-            room.currentPlayerIndex = (room.currentPlayerIndex + step * room.direction + 4) % 4;
+            advanceTurn(room, step);
           }
 
           // Put card in discard pile
@@ -527,7 +770,7 @@ wss.on('connection', (ws) => {
           
           if (!card) {
             // Still no card, pass turn
-            room.currentPlayerIndex = (room.currentPlayerIndex + room.direction + 4) % 4;
+            room.currentPlayerIndex = (room.currentPlayerIndex + room.direction + room.players.length) % room.players.length;
             broadcastGameState(code);
             return;
           }
@@ -540,7 +783,7 @@ wss.on('connection', (ws) => {
             logMsg += ` และได้การ์ดที่ลงต่อได้!`;
           } else {
             logMsg += ` ข้ามไปตาคนถัดไป`;
-            room.currentPlayerIndex = (room.currentPlayerIndex + room.direction + 4) % 4;
+            room.currentPlayerIndex = (room.currentPlayerIndex + room.direction + room.players.length) % room.players.length;
           }
 
           room.logs.push({
@@ -643,6 +886,7 @@ wss.on('connection', (ws) => {
           room.deck = [];
           room.discardPile = [];
           room.logs = [];
+          room.frozenTurns = {};
 
           // Keep bots or reset them
           room.players = room.players.filter(p => !p.isBot);
@@ -650,7 +894,8 @@ wss.on('connection', (ws) => {
           broadcastToRoom(code, 'ROOM_UPDATED', {
             players: getCleanPlayers(room.players),
             isFlipMode: room.isFlipMode,
-            cardTheme: room.cardTheme
+            cardTheme: room.cardTheme,
+            botsEnabled: room.botsEnabled
           });
           break;
         }
@@ -811,7 +1056,8 @@ function broadcastGameState(roomCode) {
       wildColorSelectionCard: room.wildColorSelectionCard,
       flipSide: room.flipSide,
       isFlipMode: room.isFlipMode,
-      cardTheme: room.cardTheme
+      cardTheme: room.cardTheme,
+      frozenTurns: room.frozenTurns
     });
   });
 }
@@ -898,87 +1144,7 @@ function triggerBotTurnsIfNeeded(roomCode) {
       const idx = bot.cards.findIndex(c => c.id === card.id);
       bot.cards.splice(idx, 1);
 
-      const cColor = getCardColor(card, freshRoom.flipSide);
-      const cValue = getCardValue(card, freshRoom.flipSide);
-
-      let logMsg = `${bot.name} วางการ์ด [${cColor} ${cValue}]`;
-      let nextColor = cColor;
-      let nextValue = cValue;
-      let step = 1;
-
-      if (cValue === 'reverse') {
-        freshRoom.direction = freshRoom.direction === 1 ? -1 : 1;
-        logMsg += ` 🔄 ย้อนทิศทางของเกม!`;
-      }
-
-      if (cValue === 'skip') {
-        if (freshRoom.flipSide === 'dark') {
-          logMsg += ` 🚫 ข้ามหมดทุกคน! ได้เล่นซ้ำอีกตา!`;
-          step = 4;
-        } else {
-          const nextIndex = (freshRoom.currentPlayerIndex + freshRoom.direction + 4) % 4;
-          logMsg += ` 🚫 ข้ามตาของ ${freshRoom.players[nextIndex].name}!`;
-          step = 2;
-        }
-      }
-
-      if (cValue === 'draw2') {
-        const victimIdx = (freshRoom.currentPlayerIndex + freshRoom.direction + 4) % 4;
-        const victim = freshRoom.players[victimIdx];
-        const penalty = freshRoom.flipSide === 'dark' ? 5 : 2;
-        const cards = [];
-        for (let i = 0; i < penalty; i++) {
-          const c = drawCardFromServerDeck(freshRoom);
-          if (c) cards.push(c);
-        }
-        victim.cards.push(...cards);
-        logMsg += ` ➕${penalty} โทษทัณฑ์! ${victim.name} จั่ว ${penalty} ใบและถูกข้าม!`;
-        step = 2;
-      }
-
-      if (cValue === 'flip') {
-        freshRoom.flipSide = freshRoom.flipSide === 'light' ? 'dark' : 'light';
-        logMsg += freshRoom.flipSide === 'dark' 
-          ? ` 🌀 พลิกมิติเข้าสู่ [โลกกระจกฝั่งมืด]! 🌌👾`
-          : ` 🌀 พลิกกลับเข้าสู่ [โลกสว่างปกติ]! ☀️🌈`;
-      }
-
-      if (cColor === 'wild') {
-        // Choose color bot holds the most
-        const counts = { red: 0, blue: 0, green: 0, yellow: 0 };
-        bot.cards.forEach(c => { 
-          const col = getCardColor(c, freshRoom.flipSide);
-          if (col !== 'wild') counts[col]++; 
-        });
-        let bestColor = 'red';
-        let max = -1;
-        Object.keys(counts).forEach(col => {
-          if (counts[col] > max) {
-            max = counts[col];
-            bestColor = col;
-          }
-        });
-        nextColor = bestColor;
-        logMsg += ` 🎨 เปลี่ยนสีเป็น [${bestColor}]`;
-
-        if (cValue === 'draw4') {
-          const victimIdx = (freshRoom.currentPlayerIndex + freshRoom.direction + 4) % 4;
-          const victim = freshRoom.players[victimIdx];
-          const penalty = freshRoom.flipSide === 'dark' ? 6 : 4;
-          const cards = [];
-          for (let i = 0; i < penalty; i++) {
-            const c = drawCardFromServerDeck(freshRoom);
-            if (c) cards.push(c);
-          }
-          victim.cards.push(...cards);
-          logMsg += ` ☠️ เปลี่ยนสีและสาด +${penalty}! ${victim.name} จั่ว ${penalty} ใบและถูกข้าม!`;
-          step = 2;
-        } else if (cValue === 'nont_dam') {
-          const result = executeNontDamEffect(freshRoom, bot, step);
-          logMsg += result.logMsg;
-          step = result.nextStep;
-        }
-      }
+      let { logMsg, nextColor, nextValue, step } = applyCardEffects(freshRoom, card, bot, {});
 
       if (bot.cards.length === 0) {
         freshRoom.status = 'gameover';
@@ -1006,7 +1172,7 @@ function triggerBotTurnsIfNeeded(roomCode) {
       }
 
       if (freshRoom.status === 'playing') {
-        freshRoom.currentPlayerIndex = (freshRoom.currentPlayerIndex + step * freshRoom.direction + 4) % 4;
+        advanceTurn(freshRoom, step);
       }
 
       freshRoom.discardPile.unshift(card);
@@ -1021,7 +1187,7 @@ function triggerBotTurnsIfNeeded(roomCode) {
 
       if (!card) {
         // Still no card, pass turn
-        freshRoom.currentPlayerIndex = (freshRoom.currentPlayerIndex + freshRoom.direction + 4) % 4;
+        freshRoom.currentPlayerIndex = (freshRoom.currentPlayerIndex + freshRoom.direction + freshRoom.players.length) % freshRoom.players.length;
         broadcastGameState(roomCode);
         triggerBotTurnsIfNeeded(roomCode);
         return;
@@ -1043,7 +1209,7 @@ function triggerBotTurnsIfNeeded(roomCode) {
         triggerBotTurnsIfNeeded(roomCode);
       } else {
         logMsg += ` และผ่านตา`;
-        freshRoom.currentPlayerIndex = (freshRoom.currentPlayerIndex + freshRoom.direction + 4) % 4;
+        freshRoom.currentPlayerIndex = (freshRoom.currentPlayerIndex + freshRoom.direction + freshRoom.players.length) % freshRoom.players.length;
         freshRoom.logs.push({
           id: `log-${Date.now()}`,
           timestamp: new Date().toLocaleTimeString('th-TH'),

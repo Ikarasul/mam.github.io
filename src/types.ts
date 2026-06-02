@@ -2,7 +2,9 @@ export type CardColor = 'red' | 'blue' | 'green' | 'yellow' | 'wild';
 
 export type CardValue = 
   | '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9'
-  | 'skip' | 'reverse' | 'draw2' | 'wild' | 'draw4' | 'nont_dam' | 'flip';
+  | 'skip' | 'reverse' | 'draw2' | 'wild' | 'draw4' | 'nont_dam' | 'flip'
+  | 'swap' | 'shield' | 'bomb' | 'spy' | 'target2' | 'discard'
+  | 'double' | 'strike' | 'freeze' | 'copy';
 
 export interface Card {
   id: string;
@@ -43,4 +45,5 @@ export interface GameState {
   wildColorSelectionCard: Card | null; // Card that triggered a wild picker
   flipModeEnabled: boolean;
   flipSide: 'light' | 'dark';
+  frozenTurns?: Record<string, number>;
 }

@@ -89,7 +89,8 @@ export default function App() {
     hasSaidUno: {},
     wildColorSelectionCard: null,
     flipModeEnabled: false,
-    flipSide: 'light'
+    flipSide: 'light',
+    frozenTurns: {}
   });
 
   // Assistant states
@@ -138,6 +139,10 @@ export default function App() {
   const [roomCodeInput, setRoomCodeInput] = useState<string>('');
   const [onlineError, setOnlineError] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState<boolean>(false);
+  const [onlineBotsEnabled, setOnlineBotsEnabled] = useState<boolean>(true);
+  const [targetSelectionCard, setTargetSelectionCard] = useState<Card | null>(null);
+  const [chosenTargetPlayerId, setChosenTargetPlayerId] = useState<string | null>(null);
+  const [spyResult, setSpyResult] = useState<{ targetName: string; cards: Card[] } | null>(null);
 
   const [onlineServerAddr, setOnlineServerAddr] = useState<string>(() => {
     const saved = localStorage.getItem('mam_card_server_addr');
@@ -215,12 +220,15 @@ export default function App() {
             setOnlinePlayers(payload.players);
             setOnlineIsHost(true);
             setIsConnecting(false);
+            setOnlineBotsEnabled(true);
             break;
           }
           case 'ROOM_UPDATED': {
             setOnlinePlayers(payload.players);
             if (payload.isFlipMode !== undefined) setIsFlipMode(payload.isFlipMode);
             if (payload.cardTheme !== undefined) setCardTheme(payload.cardTheme);
+            if (payload.botsEnabled !== undefined) setOnlineBotsEnabled(payload.botsEnabled);
+            setGameState(prev => ({ ...prev, status: 'setup', winnerId: null }));
             break;
           }
           case 'JOIN_SUCCESS': {
@@ -231,6 +239,7 @@ export default function App() {
             setIsConnecting(false);
             if (payload.isFlipMode !== undefined) setIsFlipMode(payload.isFlipMode);
             if (payload.cardTheme !== undefined) setCardTheme(payload.cardTheme);
+            if (payload.botsEnabled !== undefined) setOnlineBotsEnabled(payload.botsEnabled);
             break;
           }
           case 'GAME_STATE_UPDATED': {
@@ -300,7 +309,8 @@ export default function App() {
               hasSaidUno: payload.hasSaidUno,
               wildColorSelectionCard: payload.wildColorSelectionCard,
               flipModeEnabled: payload.isFlipMode,
-              flipSide: payload.flipSide
+              flipSide: payload.flipSide,
+              frozenTurns: payload.frozenTurns || {}
             });
             setIsFlipMode(payload.isFlipMode);
             setCardTheme(payload.cardTheme);
@@ -312,6 +322,16 @@ export default function App() {
             if (wsRef.current) {
               wsRef.current.close();
             }
+            break;
+          }
+          case 'SPY_RESULT': {
+            setSpyResult({
+              targetName: payload.targetName,
+              cards: payload.cards
+            });
+            setTimeout(() => {
+              setSpyResult(null);
+            }, 5000);
             break;
           }
         }
@@ -345,6 +365,14 @@ export default function App() {
     setOnlinePlayers([]);
     setOnlineIsHost(false);
     setGameState(prev => ({ ...prev, status: 'setup' }));
+  };
+
+  const handleToggleOnlineBots = (enabled: boolean) => {
+    setOnlineBotsEnabled(enabled);
+    wsRef.current?.send(JSON.stringify({
+      type: 'TOGGLE_BOTS',
+      payload: { enabled }
+    }));
   };
 
   // Announce starting player when game begins (useful for online mode where state is updated via WS)
@@ -603,7 +631,7 @@ export default function App() {
 
   // Calculate Next Player index
   const getNextPlayerIndex = (currentIndex: number, dir: 1 | -1, step = 1): number => {
-    return (currentIndex + step * dir + 4) % 4;
+    return (currentIndex + step * dir + gameState.players.length) % gameState.players.length;
   };
 
   const playCard = (cardId: string, authorPlayerId: string, chosenWildColor?: Exclude<CardColor, 'wild'>) => {
@@ -616,6 +644,12 @@ export default function App() {
 
       if (!isValidPlay(cardToPlay, gameState.activeColor, gameState.activeValue, gameState.flipSide)) {
         playAlertSound();
+        return;
+      }
+
+      const val = getCardValue(cardToPlay, gameState.flipSide);
+      if (['swap', 'spy', 'target2'].includes(val)) {
+        setTargetSelectionCard(cardToPlay);
         return;
       }
 
@@ -778,9 +812,9 @@ export default function App() {
       else if (effectIndex === 1) {
         // Rotate all player hands in the current direction of play
         const hands = afterPlayPlayers.map(p => [...p.cards]);
-        
-        for (let i = 0; i < 4; i++) {
-          const receiverIndex = (i + turnDirection + 4) % 4;
+        const numPlayers = afterPlayPlayers.length;
+        for (let i = 0; i < numPlayers; i++) {
+          const receiverIndex = (i + turnDirection + numPlayers) % numPlayers;
           afterPlayPlayers[receiverIndex].cards = hands[i];
         }
         
@@ -1316,17 +1350,30 @@ export default function App() {
     if (!gameState.wildColorSelectionCard) return;
     
     if (lobbyMode === 'online_mock') {
+      const cardVal = getCardValue(gameState.wildColorSelectionCard, gameState.flipSide);
+      const payload: any = {
+        cardId: gameState.wildColorSelectionCard.id,
+        chosenWildColor: selectedColor
+      };
+      
+      if (chosenTargetPlayerId) {
+        payload.targetPlayerId = chosenTargetPlayerId;
+      }
+      
+      if (cardVal === 'discard') {
+        payload.chosenDiscardColor = selectedColor;
+      }
+
       wsRef.current?.send(JSON.stringify({
         type: 'PLAY_CARD',
-        payload: {
-          cardId: gameState.wildColorSelectionCard.id,
-          chosenWildColor: selectedColor
-        }
+        payload
       }));
+
       setGameState(prev => ({
         ...prev,
         wildColorSelectionCard: null
       }));
+      setChosenTargetPlayerId(null);
       return;
     }
 
@@ -1477,13 +1524,24 @@ export default function App() {
     if (gameState.players.length === 0) return undefined;
     const localIdx = gameState.players.findIndex(p => p.id === (lobbyMode === 'online_mock' ? onlinePlayerId : 'player-1'));
     const baseIdx = localIdx !== -1 ? localIdx : 0;
+    const numPlayers = gameState.players.length;
     
-    let targetIdx = baseIdx;
-    if (pos === 'left') targetIdx = (baseIdx + 1) % 4;
-    else if (pos === 'top') targetIdx = (baseIdx + 2) % 4;
-    else if (pos === 'right') targetIdx = (baseIdx + 3) % 4;
-    
-    return gameState.players[targetIdx];
+    if (pos === 'bottom') return gameState.players[baseIdx];
+
+    if (numPlayers === 4) {
+      if (pos === 'left') return gameState.players[(baseIdx + 1) % 4];
+      if (pos === 'top') return gameState.players[(baseIdx + 2) % 4];
+      if (pos === 'right') return gameState.players[(baseIdx + 3) % 4];
+    } else if (numPlayers === 3) {
+      if (pos === 'left') return gameState.players[(baseIdx + 1) % 3];
+      if (pos === 'top') return gameState.players[(baseIdx + 2) % 3];
+      if (pos === 'right') return undefined;
+    } else if (numPlayers === 2) {
+      if (pos === 'left') return undefined;
+      if (pos === 'top') return gameState.players[(baseIdx + 1) % 2];
+      if (pos === 'right') return undefined;
+    }
+    return undefined;
   };
 
   // Helper to determine if it is the local human player's active turn
@@ -1697,6 +1755,8 @@ export default function App() {
                 disconnectWebSocket={disconnectWebSocket}
                 handleMainStartMatch={handleMainStartMatch}
                 wsRef={wsRef}
+                botsEnabled={onlineBotsEnabled}
+                onToggleBots={handleToggleOnlineBots}
               />
             )}
             {/* ACTIVE GAMEBOARD */}
@@ -1827,6 +1887,7 @@ export default function App() {
                             bubbleText={thinkingBubble}
                             isWinner={false}
                             unoBubbleText={unoAnnouncements[topPlayer.id]?.message || null}
+                            freezeTurnsCount={gameState.frozenTurns?.[topPlayer.id]}
                           />
                         )}
                         {/* Top Player hand — fan pointing downward */}
@@ -1863,6 +1924,7 @@ export default function App() {
                                 bubbleText={thinkingBubble}
                                 isWinner={false}
                                 unoBubbleText={unoAnnouncements[leftPlayer.id]?.message || null}
+                                freezeTurnsCount={gameState.frozenTurns?.[leftPlayer.id]}
                               />
                           )}
                           {/* Card fan — centred in the left column area */}
@@ -2111,6 +2173,7 @@ export default function App() {
                               bubbleText={thinkingBubble}
                               isWinner={false}
                               unoBubbleText={unoAnnouncements[rightPlayer.id]?.message || null}
+                              freezeTurnsCount={gameState.frozenTurns?.[rightPlayer.id]}
                             />
                           )}
                           {/* Card fan — centred in the right column area */}
@@ -2204,7 +2267,18 @@ export default function App() {
                           </div>
 
                           {/* THE HUMAN HAND OF CARDS */}
-                          <div className="w-full bg-slate-900/30 backdrop-blur-md p-5 rounded-2xl border border-white/5 min-h-[220px] md:min-h-[240px] flex items-center justify-center user-hand-panel">
+                          <div className="w-full bg-slate-900/30 backdrop-blur-md p-5 rounded-2xl border border-white/5 min-h-[220px] md:min-h-[240px] flex items-center justify-center user-hand-panel relative overflow-hidden">
+                            {displayedP && gameState.frozenTurns?.[displayedP.id] && gameState.frozenTurns[displayedP.id] > 0 ? (
+                              <div className="absolute inset-0 z-20 bg-cyan-955/75 backdrop-blur-[2px] border border-cyan-400/30 flex flex-col items-center justify-center text-center p-6 shadow-inner select-none">
+                                <span className="text-5xl animate-bounce mb-3">❄️</span>
+                                <h3 className="text-base font-black text-cyan-300 tracking-wider uppercase font-mono">
+                                  คุณถูกแช่แข็ง! (Frozen)
+                                </h3>
+                                <p className="text-xs text-cyan-200 font-sans mt-1">
+                                  ไม่สามารถจั่วหรือเล่นการ์ดได้ในขณะนี้ (เหลืออีก {gameState.frozenTurns[displayedP.id]} รอบบอร์ด)
+                                </p>
+                              </div>
+                            ) : null}
                             <div className="flex gap-3 overflow-x-auto py-4 px-2 scrollbar-thin justify-start w-full max-w-full">
                               {playableHand.map((card) => {
                                 const playable = isItsTurn && !isAiThinking && isValidPlay(card, gameState.activeColor, gameState.activeValue, gameState.flipSide);
@@ -2382,6 +2456,117 @@ export default function App() {
         onSelect={handleResolveColorChoice}
         flipSide={gameState.flipSide}
       />
+
+      {/* TARGET SELECTION MODAL */}
+      <AnimatePresence>
+        {targetSelectionCard && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setTargetSelectionCard(null)}
+              className="absolute inset-0 bg-slate-950/80 backdrop-blur-md"
+            />
+
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="relative w-full max-w-md bg-slate-900/90 backdrop-blur-md border border-white/10 rounded-3xl p-6 md:p-8 z-10 shadow-2xl text-center shadow-[0_0_50px_rgba(6,182,212,0.15)]"
+            >
+              <h2 className="text-xl font-black text-white mb-2">
+                🎯 เลือกผู้เล่นเป้าหมาย
+              </h2>
+              <p className="text-xs text-slate-400 mb-6 font-mono">
+                สำหรับการ์ด: {getCardValueThai(getCardValue(targetSelectionCard, gameState.flipSide))}
+              </p>
+
+              <div className="grid grid-cols-1 gap-3">
+                {gameState.players
+                  .filter(p => p.id !== (lobbyMode === 'online_mock' ? onlinePlayerId : gameState.players[gameState.currentPlayerIndex]?.id))
+                  .map(p => (
+                    <button
+                      key={p.id}
+                      onClick={() => {
+                        setChosenTargetPlayerId(p.id);
+                        const card = targetSelectionCard;
+                        setTargetSelectionCard(null);
+                        setGameState(prev => ({
+                          ...prev,
+                          wildColorSelectionCard: card
+                        }));
+                      }}
+                      className="flex items-center gap-3 p-4 bg-slate-800/80 border border-white/5 hover:border-cyan-500 hover:bg-slate-800 rounded-2xl transition cursor-pointer text-left text-white"
+                    >
+                      <span className="text-2xl select-none">{p.avatar}</span>
+                      <span className="font-bold flex-1 font-mono text-sm">{p.name}</span>
+                      <span className="text-xs text-slate-500 font-mono">ถือการ์ด {p.cards?.length ?? p.cardCount ?? 0} ใบ</span>
+                    </button>
+                  ))}
+              </div>
+
+              <button
+                onClick={() => setTargetSelectionCard(null)}
+                className="mt-6 text-xs text-slate-500 hover:text-white underline font-mono cursor-pointer"
+              >
+                ยกเลิก
+              </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* SPY RESULT OVERLAY */}
+      <AnimatePresence>
+        {spyResult && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setSpyResult(null)}
+              className="absolute inset-0 bg-slate-950/80 backdrop-blur-md"
+            />
+
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="relative w-full max-w-lg bg-slate-900/95 backdrop-blur-md border border-cyan-500/35 rounded-3xl p-6 md:p-8 z-10 shadow-2xl text-center shadow-[0_0_50px_rgba(6,182,212,0.15)]"
+            >
+              <h2 className="text-xl font-black text-cyan-400 mb-2 flex items-center justify-center gap-2">
+                👁️ ตรวจสอบการ์ดในมือ
+              </h2>
+              <p className="text-sm text-white mb-6 font-mono">
+                ส่องมือของ: <span className="text-amber-400 font-bold">{spyResult.targetName}</span>
+              </p>
+
+              <div className="flex flex-wrap justify-center gap-3 max-h-[45vh] overflow-y-auto p-4 bg-slate-950/50 rounded-2xl border border-white/5 mb-6">
+                {spyResult.cards.map((c, idx) => (
+                  <div key={c.id || idx} className="scale-90 select-none pointer-events-none">
+                    <UnoCard card={c} isBack={false} size="sm" theme={cardTheme} />
+                  </div>
+                ))}
+                {spyResult.cards.length === 0 && (
+                  <p className="text-xs text-slate-500 italic">ไม่มีการ์ดในมือ</p>
+                )}
+              </div>
+
+              <div className="text-[10px] text-slate-500 font-mono mb-4">
+                (หน้าต่างนี้จะปิดตัวลงโดยอัตโนมัติ)
+              </div>
+
+              <button
+                onClick={() => setSpyResult(null)}
+                className="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-3 rounded-xl text-sm transition cursor-pointer font-mono"
+              >
+                เสร็จสิ้นการส่อง
+              </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* HOW TO MANUAL OVERLAY MODAL */}
       <AnimatePresence>
@@ -2579,9 +2764,10 @@ interface PlayerPanelProps {
   bubbleText: string | null;
   isWinner: boolean;
   unoBubbleText?: string | null;
+  freezeTurnsCount?: number;
 }
 
-const PlayerPanel: React.FC<PlayerPanelProps> = ({ player, isActive, isThinking, bubbleText, isWinner, unoBubbleText }) => {
+const PlayerPanel: React.FC<PlayerPanelProps> = ({ player, isActive, isThinking, bubbleText, isWinner, unoBubbleText, freezeTurnsCount }) => {
   if (!player) return null;
 
   return (
@@ -2635,6 +2821,23 @@ const PlayerPanel: React.FC<PlayerPanelProps> = ({ player, isActive, isThinking,
           : 'bg-gradient-to-br from-slate-900/90 to-slate-950/95 border-white/10 opacity-90'}
       `}>
         <span className="select-none">{player.avatar}</span>
+
+        {/* Freeze overlay (Ice) */}
+        <AnimatePresence>
+          {freezeTurnsCount && freezeTurnsCount > 0 ? (
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.8 }}
+              className="absolute inset-0 z-20 rounded-xl bg-cyan-400/35 border border-cyan-300 backdrop-blur-[1px] flex items-center justify-center pointer-events-none shadow-[0_0_15px_rgba(34,211,238,0.5)] overflow-hidden animate-pulse"
+            >
+              <span className="text-sm select-none">❄️</span>
+              <span className="absolute -top-1 -left-1 bg-cyan-600 border border-cyan-300 text-white rounded-full w-5 h-5 flex items-center justify-center text-[9px] font-black font-mono shadow-md">
+                {freezeTurnsCount}
+              </span>
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
 
         {/* Turn Pulse Badge */}
         {isActive && (
