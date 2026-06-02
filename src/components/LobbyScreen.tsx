@@ -1,7 +1,8 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Play, RefreshCw, AlertTriangle } from 'lucide-react';
+import { RefreshCw, AlertTriangle, Users, Globe, Play } from 'lucide-react';
 import { NontDamCard } from './NontDamCard';
+import { UnoCard } from './UnoCard';
 import { CardColor } from '../types';
 
 interface LobbySlot {
@@ -10,6 +11,7 @@ interface LobbySlot {
   isBot: boolean;
   avatar: string;
   botId?: string;
+  enabled?: boolean;
 }
 
 interface BotProfile {
@@ -79,7 +81,7 @@ export function LobbyScreen(props: LobbyScreenProps) {
 
   const nontDamQuotes = [
     "\u{1F3A4} \u0E41\u0E23\u0E1B\u0E40\u0E1B\u0E2D\u0E23\u0E4C\u0E04\u0E19\u0E14\u0E33\u0E23\u0E30\u0E14\u0E31\u0E1A\u0E15\u0E2D\u0E01\u0E01\u0E49\u0E19\u0E1E\u0E25\u0E32\u0E2A\u0E21\u0E48\u0E32!",
-    "\u{1F4E3} \u0E04\u0E32\u0E22\u0E17\u0E48\u0E2D\u0E19\u0E41\u0E23\u0E1B\u0E23\u0E30\u0E40\u0E1A\u0E34\u0E14\u0E01\u0E23\u0E30\u0E14\u0E32\u0E19!",
+    "\u{1F4E3} \u0E04\u0E32\u0E22\u0E17\u0E48\u0E2D\u0E19\u0E41\u0E23\u0E1B\u0E23\u0E30\u0E40\u0E1B\u0E23\u0E30\u0E40\u0E1B\u0E34\u0E14\u0E01\u0E23\u0E30\u0E14\u0E32\u0E19!",
     "\u{1F92A} \u0E22\u0E34\u0E48\u0E07\u0E41\u0E23\u0E1B\u0E22\u0E34\u0E48\u0E07\u0E23\u0E31\u0E27 \u0E15\u0E31\u0E1A\u0E46\u0E46 \u0E2B\u0E39\u0E15\u0E36\u0E07!",
     "\u{1F4E2} \u0E41\u0E27\u0E47\u0E01\u0E2A\u0E34\u0E2A\u0E34\u0E1A\u0E40\u0E14\u0E0B\u0E34\u0E40\u0E1A\u0E25 \u0E01\u0E38\u0E21\u0E02\u0E21\u0E31\u0E1A!",
     "\u{1F57A} \u0E2A\u0E25\u0E31\u0E1A\u0E01\u0E32\u0E23\u0E4C\u0E14\u0E1B\u0E48\u0E27\u0E19\u0E22\u0E31\u0E1A\u0E40\u0E22\u0E34\u0E19\u0E42\u0E22\u0E48\u0E27!"
@@ -90,483 +92,465 @@ export function LobbyScreen(props: LobbyScreenProps) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
-      className="w-full max-w-2xl mx-auto px-2"
+      className="w-full max-w-5xl mx-auto px-4 pb-12"
     >
-      {/* ====== LOGO ====== */}
-      <div className="text-center mb-10 select-none">
-        <motion.div
-          animate={{ y: [0, -8, 0] }}
-          transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
-          className="inline-block mb-3"
-        >
-          <div className="w-28 h-28 mx-auto rounded-[2rem] bg-gradient-to-br from-yellow-400 via-orange-400 to-red-500 flex items-center justify-center shadow-[0_12px_40px_rgba(251,146,60,0.35)] border-4 border-white/20">
-            <span className="text-6xl drop-shadow-lg">{'\u{1F3B4}'}</span>
+      {/* ====== HEADER ====== */}
+      <div className="arcade-header mt-4">
+        <div className="pixel-logo">
+          <span className="text-6xl drop-shadow-md">🎴</span>
+        </div>
+        <h1 className="title-text text-3xl md:text-5xl">MAM CARD</h1>
+        <p className="subtitle mt-2">ARCADE TERMINAL // V1.0</p>
+      </div>
+
+      {/* ========================================= */}
+      {/* TIER 1: MODES & THEMES                      */}
+      {/* ========================================= */}
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-8 mt-8 mb-8">
+        
+        {/* --- MODE SELECTOR --- */}
+        <div className="md:col-span-8">
+          <div className="arcade-step-title !bg-cyan-500/10 !border-cyan-400">
+            <span className="arcade-step-num !text-cyan-400">01</span>
+            <h2 className="arcade-step-text text-sm">เลือกโหมดการเล่น</h2>
           </div>
-        </motion.div>
-        <h1 className="font-black text-4xl md:text-5xl bg-gradient-to-r from-yellow-300 via-orange-300 to-pink-400 bg-clip-text text-transparent tracking-tight">
-          MAM CARD
-        </h1>
-        <p className="text-slate-400 text-base mt-2 font-medium">
-          {'\u0E40\u0E01\u0E21\u0E01\u0E32\u0E23\u0E4C\u0E14\u0E2A\u0E38\u0E14\u0E21\u0E31\u0E19 \u0E40\u0E25\u0E48\u0E19\u0E07\u0E48\u0E32\u0E22 \u0E2A\u0E19\u0E38\u0E01\u0E17\u0E38\u0E01\u0E23\u0E2D\u0E1A! \u{1F525}'}
-        </p>
-      </div>
-
-      {/* ====== STEP 1: Pick Mode ====== */}
-      <div className="mb-6">
-        <div className="flex items-center gap-2 mb-3 px-1">
-          <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white text-xs font-black shadow">1</div>
-          <h2 className="text-base font-bold text-white">{'\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E42\u0E2B\u0E21\u0E14\u0E40\u0E25\u0E48\u0E19'}</h2>
-        </div>
-        <div className="grid grid-cols-3 gap-3">
-          {([
-            { mode: 'friends' as const, icon: '\u{1F46B}', label: '\u0E40\u0E25\u0E48\u0E19\u0E01\u0E31\u0E1A\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E19', sub: '\u0E2A\u0E48\u0E07\u0E21\u0E37\u0E2D\u0E16\u0E37\u0E2D\u0E27\u0E19\u0E40\u0E25\u0E48\u0E19\nPass & Play', color: 'blue' },
-            { mode: 'classic' as const, icon: '\u{1F916}', label: '\u0E2A\u0E39\u0E49\u0E01\u0E31\u0E1A\u0E1A\u0E2D\u0E17', sub: '\u0E1D\u0E36\u0E01\u0E0B\u0E49\u0E2D\u0E21\u0E40\u0E14\u0E35\u0E48\u0E22\u0E27\nVS AI 3 \u0E15\u0E31\u0E27', color: 'orange' },
-            { mode: 'online_mock' as const, icon: '\u{1F310}', label: '\u0E2D\u0E2D\u0E19\u0E44\u0E25\u0E19\u0E4C', sub: '\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E2B\u0E49\u0E2D\u0E07\u0E2B\u0E23\u0E37\u0E2D\u0E40\u0E02\u0E49\u0E32\u0E23\u0E48\u0E27\u0E21\n\u0E40\u0E25\u0E48\u0E19\u0E1C\u0E48\u0E32\u0E19 Wi-Fi', color: 'emerald' },
-          ]).map(({ mode, icon, label, sub, color }) => (
-            <motion.button
-              key={mode}
-              whileHover={{ y: -3 }}
-              whileTap={{ scale: 0.96 }}
-              onClick={() => { playCardSound(); setLobbyMode(mode); }}
-              className={`relative rounded-2xl p-4 cursor-pointer transition-all duration-200 text-center overflow-hidden ${
-                lobbyMode === mode
-                  ? `bg-gradient-to-b from-${color}-500/20 to-${color}-600/10 border-2 border-${color}-400 shadow-[0_0_20px_rgba(100,180,250,0.2)]`
-                  : 'bg-white/[0.03] border-2 border-transparent hover:bg-white/[0.06] hover:border-white/10'
-              }`}
-              style={lobbyMode === mode ? {
-                borderColor: color === 'blue' ? '#60a5fa' : color === 'orange' ? '#fb923c' : '#34d399',
-                background: `linear-gradient(to bottom, ${color === 'blue' ? 'rgba(59,130,246,0.15)' : color === 'orange' ? 'rgba(249,115,22,0.15)' : 'rgba(16,185,129,0.15)'}, transparent)`
-              } : {}}
-            >
-              <div className="text-4xl mb-2">{icon}</div>
-              <div className="font-bold text-white text-sm leading-tight">{label}</div>
-              <div className="text-[10px] text-slate-400 mt-1.5 leading-snug whitespace-pre-line">{sub}</div>
-              {lobbyMode === mode && (
-                <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center shadow-md"
-                  style={{ background: color === 'blue' ? '#60a5fa' : color === 'orange' ? '#fb923c' : '#34d399' }}
-                >
-                  <span className="text-[10px] text-white font-black">{'\u2713'}</span>
-                </motion.div>
-              )}
-            </motion.button>
-          ))}
-        </div>
-      </div>
-
-      {/* ====== STEP 2: Setup ====== */}
-      <div className="mb-6">
-        <div className="flex items-center gap-2 mb-3 px-1">
-          <div className="w-7 h-7 rounded-full bg-gradient-to-br from-pink-500 to-orange-500 flex items-center justify-center text-white text-xs font-black shadow">2</div>
-          <h2 className="text-base font-bold text-white">
-            {lobbyMode === 'friends' ? '\u0E08\u0E31\u0E14\u0E17\u0E35\u0E48\u0E19\u0E31\u0E48\u0E07' : lobbyMode === 'classic' ? '\u0E15\u0E31\u0E49\u0E07\u0E0A\u0E37\u0E48\u0E2D\u0E40\u0E25\u0E48\u0E19' : '\u0E40\u0E02\u0E49\u0E32\u0E2B\u0E49\u0E2D\u0E07\u0E40\u0E25\u0E48\u0E19'}
-          </h2>
-        </div>
-
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={lobbyMode}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.25 }}
-            className="bg-white/[0.04] rounded-2xl border border-white/8 p-5"
-          >
-            {/* Friends Mode */}
-            {lobbyMode === 'friends' && (
-              <div className="space-y-3">
-                {lobbySlots.map((slot, sIdx) => {
-                  const isMainUser = sIdx === 0;
-                  return (
-                    <div
-                      key={slot.id}
-                      className={`flex items-center gap-3 p-3 rounded-xl transition-all ${
-                        isMainUser
-                          ? 'bg-blue-500/8 border border-blue-500/15'
-                          : 'bg-white/[0.02] border border-white/5'
-                      }`}
-                    >
-                      <button
-                        type="button"
-                        onClick={() => {
-                          playCardSound();
-                          setLobbySlots(prev => prev.map((s, idx) => idx === sIdx ? { ...s, avatar: cycleAvatar(s.avatar) } : s));
-                        }}
-                        className="w-12 h-12 rounded-full bg-slate-800 flex items-center justify-center text-2xl hover:bg-slate-700 transition cursor-pointer active:scale-90 border-2 border-white/10 hover:border-white/20 shrink-0"
-                      >
-                        {slot.avatar}
-                      </button>
-
-                      <div className="flex-1 min-w-0">
-                        <div className="text-[10px] text-slate-500 font-semibold mb-0.5">
-                          {isMainUser ? '\u2B50 \u0E17\u0E35\u0E48\u0E19\u0E31\u0E48\u0E07 1 (\u0E04\u0E38\u0E13)' : `\u0E17\u0E35\u0E48\u0E19\u0E31\u0E48\u0E07 ${sIdx + 1}`}
-                        </div>
-                        <input
-                          type="text"
-                          value={slot.name}
-                          onChange={(e) => {
-                            const val = e.target.value.slice(0, 14);
-                            setLobbySlots(prev => prev.map((s, idx) => idx === sIdx ? { ...s, name: val } : s));
-                          }}
-                          placeholder={`\u0E0A\u0E37\u0E48\u0E2D\u0E1C\u0E39\u0E49\u0E40\u0E25\u0E48\u0E19 ${sIdx + 1}`}
-                          className="w-full bg-slate-900/60 border border-white/8 rounded-lg px-3 py-1.5 text-sm text-white font-semibold focus:ring-2 focus:ring-blue-500/40 outline-none placeholder:text-slate-600"
-                        />
-                      </div>
-
-                      <div className="flex gap-1 bg-slate-900/60 p-1 rounded-xl border border-white/5 shrink-0">
-                        <button
-                          type="button"
-                          onClick={() => { playCardSound(); setLobbySlots(prev => prev.map((s, idx) => idx === sIdx ? { ...s, isBot: false } : s)); }}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                            !slot.isBot ? 'bg-blue-500 text-white shadow-sm' : 'text-slate-500 hover:text-white'
-                          }`}
-                        >
-                          {'\u{1F464}'} {'\u0E04\u0E19'}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => { playCardSound(); setLobbySlots(prev => prev.map((s, idx) => idx === sIdx ? { ...s, isBot: true, name: s.name.includes('\u{1F916}') ? s.name : s.name + ' \u{1F916}' } : s)); }}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                            slot.isBot ? 'bg-amber-500 text-white shadow-sm' : 'text-slate-500 hover:text-white'
-                          }`}
-                        >
-                          {'\u{1F916}'} {'\u0E1A\u0E2D\u0E17'}
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-
-            {/* Classic Mode */}
-            {lobbyMode === 'classic' && (
-              <div className="space-y-5">
-                <div>
-                  <label className="block text-sm font-semibold text-slate-300 mb-2">{'\u{1F464}'} {'\u0E0A\u0E37\u0E48\u0E2D\u0E02\u0E2D\u0E07\u0E04\u0E38\u0E13'}</label>
-                  <input
-                    type="text"
-                    value={userName}
-                    onChange={(e) => setUserName(e.target.value.slice(0, 15))}
-                    placeholder={'\u0E43\u0E2A\u0E48\u0E0A\u0E37\u0E48\u0E2D\u0E40\u0E25\u0E48\u0E19...'}
-                    className="w-full bg-slate-900/50 border border-white/10 rounded-xl px-4 py-3 text-white text-base focus:ring-2 focus:ring-orange-500/40 outline-none font-semibold placeholder:text-slate-600"
-                  />
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {[
+              { mode: 'friends' as const, icon: <Users size={24} />, label: 'เล่นเครื่องเดียวกัน' },
+              { mode: 'classic' as const, icon: <Play size={24} />, label: 'สู้กับบอท' },
+              { mode: 'online_mock' as const, icon: <Globe size={24} />, label: 'ออนไลน์' },
+            ].map(({ mode, icon, label }) => (
+              <button
+                key={mode}
+                onClick={() => { playCardSound(); setLobbyMode(mode); }}
+                className={`relative flex flex-col items-center justify-center gap-2 p-4 border-2 transition-all rounded-xl ${
+                  lobbyMode === mode 
+                    ? 'border-rose-400 bg-rose-400/10 shadow-[0_0_15px_rgba(251,113,133,0.3)]' 
+                    : 'border-slate-800/60 bg-[#161622] hover:border-slate-700'
+                }`}
+              >
+                <div className={`${lobbyMode === mode ? 'text-rose-400' : 'text-slate-500'}`}>
+                  {icon}
                 </div>
-                <div>
-                  <span className="block text-sm font-semibold text-slate-300 mb-2">{'\u{1F916}'} {'\u0E04\u0E39\u0E48\u0E41\u0E02\u0E48\u0E07\u0E1A\u0E2D\u0E17 AI'}</span>
-                  <div className="flex gap-3">
-                    {botProfiles.map((opp) => (
-                      <div key={opp.id} className="flex-1 bg-slate-900/40 border border-white/5 p-3 rounded-xl text-center hover:border-orange-500/20 transition">
-                        <div className="text-3xl mb-1">{opp.avatar}</div>
-                        <div className="text-xs font-bold text-white truncate">{opp.name}</div>
-                        <div className="text-[9px] text-slate-500 mt-1 italic leading-tight">"{opp.quote}"</div>
+                <div className={`font-mono font-bold text-xs tracking-wider ${lobbyMode === mode ? 'arcade-text-highlight' : 'text-slate-500'}`}>{label}</div>
+                {lobbyMode === mode && (
+                  <div className="absolute top-2 right-2 w-2 h-2 bg-rose-400 animate-ping rounded-full" />
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* --- CARD THEME --- */}
+        <div className="md:col-span-4">
+          <div className="arcade-step-title !bg-purple-500/10 !border-purple-400">
+            <span className="arcade-step-num !text-purple-400">02</span>
+            <h2 className="arcade-step-text text-sm">รูปแบบการ์ด</h2>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              onClick={() => { playCardSound(); setCardTheme('pixel'); }}
+              className={`flex flex-col items-center justify-center p-4 border-2 transition-all rounded-xl ${
+                cardTheme === 'pixel' ? 'border-purple-400 bg-purple-400/10 shadow-[0_0_15px_rgba(192,132,252,0.3)]' : 'border-slate-800/60 bg-[#161622] hover:border-slate-700'
+              }`}
+            >
+              <span className="text-3xl mb-2">👾</span>
+              <span className={`font-bold text-[10px] ${cardTheme === 'pixel' ? 'arcade-text-highlight' : 'text-slate-500'}`}>พิกเซล</span>
+            </button>
+            <button
+              onClick={() => { playCardSound(); setCardTheme('neon'); }}
+              className={`flex flex-col items-center justify-center p-4 border-2 transition-all rounded-xl ${
+                cardTheme === 'neon' ? 'border-sky-400 bg-sky-400/10 shadow-[0_0_15px_rgba(56,189,248,0.3)]' : 'border-slate-800/60 bg-[#161622] hover:border-slate-700'
+              }`}
+            >
+              <span className="text-3xl mb-2">⚡</span>
+              <span className={`font-bold text-[10px] ${cardTheme === 'neon' ? 'arcade-text-highlight' : 'text-slate-500'}`}>นีออน</span>
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+      {/* ========================================= */}
+      {/* TIER 2: ROSTER & SYSTEM CONFIG            */}
+      {/* ========================================= */}
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-8 mb-8">
+        
+        {/* --- LEFT: ROSTER --- */}
+        <div className="md:col-span-7 flex flex-col gap-6">
+          <div className="arcade-step-title !mb-0 !bg-purple-500/10 !border-purple-400">
+            <span className="arcade-step-num !text-purple-400">03</span>
+            <h2 className="arcade-step-text text-sm">
+              {lobbyMode === 'friends' ? 'จัดทีมผู้เล่น' : lobbyMode === 'classic' ? 'ข้อมูลผู้ท้าชิง' : 'สถานีเชื่อมต่อ'}
+            </h2>
+          </div>
+
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={lobbyMode}
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 20 }}
+              transition={{ duration: 0.2 }}
+              className="flex-1"
+            >
+              {/* --- FRIENDS MODE --- */}
+              {lobbyMode === 'friends' && (
+                <div className="arcade-panel flex flex-col gap-3">
+                  {lobbySlots.map((slot, sIdx) => {
+                    const isMainUser = sIdx === 0;
+                    const isEnabled = slot.enabled !== false;
+                    return (
+                      <div key={slot.id} className={`arcade-slot ${isMainUser ? 'is-active' : ''} ${!isEnabled ? 'opacity-40 grayscale' : ''} !p-3`}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!isEnabled) return;
+                            playCardSound();
+                            setLobbySlots(prev => prev.map((s, idx) => idx === sIdx ? { ...s, avatar: cycleAvatar(s.avatar) } : s));
+                          }}
+                          className="arcade-avatar-btn shrink-0"
+                          title="เปลี่ยนรูป"
+                          disabled={!isEnabled}
+                        >
+                          {slot.avatar}
+                        </button>
+                        <div className="flex-1 min-w-0">
+                          <label className="arcade-label !mb-1 text-[8px] text-slate-500">
+                            {isMainUser ? 'ผู้เล่นที่ 1 (คุณ)' : `ผู้เล่นที่ ${sIdx + 1}`}
+                          </label>
+                          <input
+                            type="text"
+                            value={slot.name}
+                            onChange={(e) => {
+                              if (!isEnabled) return;
+                              const val = e.target.value.slice(0, 14);
+                              setLobbySlots(prev => prev.map((s, idx) => idx === sIdx ? { ...s, name: val } : s));
+                            }}
+                            placeholder="ใส่ชื่อผู้เล่น..."
+                            className="arcade-input !py-1.5 !text-sm border-none"
+                            disabled={!isEnabled}
+                          />
+                        </div>
+                        <div className="arcade-toggle-group shrink-0 flex-col sm:flex-row !border-slate-700">
+                          <button
+                            type="button"
+                            onClick={() => { playCardSound(); setLobbySlots(prev => prev.map((s, idx) => idx === sIdx ? { ...s, isBot: false, enabled: true } : s)); }}
+                            className={`arcade-toggle-btn !px-3 !py-2 ${isEnabled && !slot.isBot ? 'active' : ''}`}
+                          >
+                            คน
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => { playCardSound(); setLobbySlots(prev => prev.map((s, idx) => idx === sIdx ? { ...s, isBot: true, enabled: true, name: s.name.includes('\u{1F916}') ? s.name : s.name + ' \u{1F916}' } : s)); }}
+                            className={`arcade-toggle-btn !px-3 !py-2 ${isEnabled && slot.isBot ? '!bg-amber-500 !text-black' : ''}`}
+                          >
+                            AI
+                          </button>
+                          {!isMainUser && (
+                            <button
+                              type="button"
+                              onClick={() => { playCardSound(); setLobbySlots(prev => prev.map((s, idx) => idx === sIdx ? { ...s, enabled: false } : s)); }}
+                              className={`arcade-toggle-btn !px-3 !py-2 ${!isEnabled ? '!bg-red-500 !text-white' : ''}`}
+                            >
+                              ปิด
+                            </button>
+                          )}
+                        </div>
                       </div>
-                    ))}
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* --- CLASSIC MODE (VS AI) --- */}
+              {lobbyMode === 'classic' && (
+                <div className="arcade-panel flex flex-col gap-6">
+                  <div className="arcade-slot is-active">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        playCardSound();
+                        setLobbySlots(prev => prev.map((s, idx) => idx === 0 ? { ...s, avatar: cycleAvatar(s.avatar) } : s));
+                      }}
+                      className="arcade-avatar-btn shrink-0"
+                    >
+                      {lobbySlots[0].avatar}
+                    </button>
+                    <div className="flex-1">
+                      <label className="arcade-label">รหัสผู้ท้าชิง (ชื่อของคุณ)</label>
+                      <input
+                        type="text"
+                        value={userName}
+                        onChange={(e) => setUserName(e.target.value.slice(0, 15))}
+                        placeholder="ใส่ชื่อของคุณ..."
+                        className="arcade-input border-none"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <label className="arcade-label border-b-2 border-slate-800 pb-2 mb-4">คู่ต่อสู้ AI ของระบบ</label>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      {botProfiles.map((opp) => (
+                        <div key={opp.id} className="arcade-slot !flex-col !gap-2 !p-4 text-center border-dashed border-slate-700 bg-black/40">
+                          <div className="text-4xl drop-shadow-md">{opp.avatar}</div>
+                          <div className="font-bold text-[11px] text-red-400 truncate w-full tracking-wider font-mono">{opp.name}</div>
+                          <div className="text-[8px] text-slate-500 italic leading-snug">"{opp.quote}"</div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* Online Mode */}
-            {lobbyMode === 'online_mock' && (
-              <>
-                {onlineRoomCode === null ? (
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-semibold text-slate-300 mb-2">👤 {'โปรไฟล์ (กดรูปเพื่อเปลี่ยน)'}</label>
-                      <div className="flex gap-3">
+              {/* --- ONLINE MODE --- */}
+              {lobbyMode === 'online_mock' && (
+                <div className="arcade-panel flex flex-col gap-6 min-h-[300px]">
+                  {onlineRoomCode === null ? (
+                    <>
+                      {/* Offline State */}
+                      <div className="arcade-slot is-active">
                         <button
                           type="button"
                           onClick={() => {
                             playCardSound();
                             setLobbySlots(prev => prev.map((s, idx) => idx === 0 ? { ...s, avatar: cycleAvatar(s.avatar) } : s));
                           }}
-                          className="w-14 h-14 rounded-full bg-slate-800 flex items-center justify-center text-2xl hover:bg-slate-700 transition cursor-pointer active:scale-90 border-2 border-white/10 shrink-0"
+                          className="arcade-avatar-btn shrink-0"
                         >
                           {lobbySlots[0].avatar}
                         </button>
+                        <div className="flex-1">
+                          <label className="arcade-label">ชื่อผู้เล่นออนไลน์</label>
+                          <input
+                            type="text"
+                            value={userName}
+                            onChange={(e) => setUserName(e.target.value.slice(0, 15))}
+                            placeholder="ใส่ชื่อของคุณ..."
+                            className="arcade-input border-none"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="p-4 border-2 border-slate-800 bg-black">
+                        <label className="arcade-label !text-slate-500">ที่อยู่เซิร์ฟเวอร์ (IP)</label>
                         <input
                           type="text"
-                          value={userName}
-                          onChange={(e) => setUserName(e.target.value.slice(0, 15))}
-                          placeholder={'ใส่ชื่อเล่น...'}
-                          className="flex-1 bg-slate-900/50 border border-white/10 rounded-xl px-4 py-3 text-white text-base focus:ring-2 focus:ring-emerald-500/40 outline-none font-semibold placeholder:text-slate-600"
+                          value={onlineServerAddr}
+                          onChange={(e) => setOnlineServerAddr(e.target.value)}
+                          placeholder="localhost:3001"
+                          className="arcade-input !text-xs !p-2"
                         />
                       </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-semibold text-slate-300 mb-2">🌐 {'ที่อยู่เซิร์ฟเวอร์ WebSocket'}</label>
-                      <input
-                        type="text"
-                        value={onlineServerAddr}
-                        onChange={(e) => setOnlineServerAddr(e.target.value)}
-                        placeholder="ตัวอย่าง: localhost:3001 หรือ ws://192.168.1.10:3001"
-                        className="w-full bg-slate-900/50 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:ring-2 focus:ring-emerald-500/40 outline-none font-mono placeholder:text-slate-600"
-                      />
-                      <p className="text-[10px] text-slate-500 mt-1.5 leading-relaxed">
-                        💡 {'เล่นบน Netlify: ต้องเปิดรันเซิร์ฟเวอร์ด้วยคำสั่ง node server.js ในเครื่องคอมพิวเตอร์ก่อน จากนั้นระบุ IP ของเครื่องหรือ localhost:3001 (หากเล่นเครื่องเดียวกัน)'}
-                      </p>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                      <motion.button
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.96 }}
-                        onClick={() => connectWebSocket('create')}
-                        disabled={isConnecting}
-                        className="py-4 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 disabled:opacity-50 text-white font-black text-sm rounded-xl cursor-pointer transition shadow-lg flex items-center justify-center gap-2"
-                      >
-                        {isConnecting ? (
-                          <><RefreshCw size={14} className="animate-spin" /> {'\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E2B\u0E49\u0E2D\u0E07...'}</>
-                        ) : (
-                          <><span className="text-xl">{'\u{1F3E0}'}</span> {'\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E2B\u0E49\u0E2D\u0E07\u0E43\u0E2B\u0E21\u0E48'}</>
-                        )}
-                      </motion.button>
-
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          value={roomCodeInput}
-                          onChange={(e) => setRoomCodeInput(e.target.value.toUpperCase().slice(0, 4))}
-                          placeholder={'\u0E23\u0E2B\u0E31\u0E2A'}
-                          className="flex-1 bg-slate-900/50 border border-white/10 rounded-xl px-3 py-2 text-white text-lg font-mono font-black tracking-[0.3em] text-center focus:ring-2 focus:ring-emerald-500/40 outline-none placeholder:text-slate-600 placeholder:tracking-normal placeholder:text-sm placeholder:font-normal"
-                        />
-                        <motion.button
-                          whileHover={{ scale: 1.05 }}
-                          whileTap={{ scale: 0.95 }}
-                          onClick={() => {
-                            if (roomCodeInput.length !== 4) {
-                              alert('\u0E01\u0E23\u0E38\u0E13\u0E32\u0E43\u0E2A\u0E48\u0E23\u0E2B\u0E31\u0E2A\u0E2B\u0E49\u0E2D\u0E07\u0E43\u0E2B\u0E49\u0E04\u0E23\u0E1A 4 \u0E2B\u0E25\u0E31\u0E01 \u26A0\uFE0F');
-                              return;
-                            }
-                            connectWebSocket('join', roomCodeInput);
-                          }}
-                          disabled={isConnecting || roomCodeInput.length !== 4}
-                          className="px-4 bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-400 font-black text-sm rounded-xl cursor-pointer transition shrink-0 disabled:opacity-30"
-                        >
-                          {'\u0E40\u0E02\u0E49\u0E32\u0E23\u0E48\u0E27\u0E21'}
-                        </motion.button>
+                      
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
+                        {/* JOIN */}
+                        <div className="p-4 border-2 border-cyan-900 bg-cyan-950/20 relative">
+                          <label className="arcade-label !absolute -top-2.5 left-2 bg-[#0e0c0b] px-2 !text-cyan-400">เข้าร่วมห้อง</label>
+                          <input
+                            type="text"
+                            value={roomCodeInput}
+                            onChange={(e) => setRoomCodeInput(e.target.value.toUpperCase().slice(0, 4))}
+                            placeholder="กรอกรหัส"
+                            className="arcade-input !text-center tracking-[4px] mb-3 !bg-black"
+                          />
+                          <button
+                            onClick={() => connectWebSocket('join', roomCodeInput)}
+                            disabled={isConnecting || !roomCodeInput}
+                            className="w-full py-2 bg-cyan-500 text-black font-black font-mono text-sm disabled:opacity-50 hover:bg-cyan-400"
+                          >
+                            CONNECT
+                          </button>
+                        </div>
+                        {/* HOST */}
+                        <div className="p-4 border-2 border-amber-900 bg-amber-950/20 relative flex flex-col justify-end">
+                          <label className="arcade-label !absolute -top-2.5 left-2 bg-[#0e0c0b] px-2 !text-amber-400">สร้างห้องใหม่</label>
+                          <button
+                            onClick={() => connectWebSocket('create')}
+                            disabled={isConnecting}
+                            className="w-full py-4 bg-amber-500 text-black font-black font-mono text-sm disabled:opacity-50 hover:bg-amber-400"
+                          >
+                            HOST BATTLE
+                          </button>
+                        </div>
                       </div>
-                    </div>
-
-                    {onlineError && (
-                      <div className="p-3 bg-red-950/30 border border-red-500/20 rounded-xl text-red-400 text-sm flex items-start gap-2">
-                        <AlertTriangle size={16} className="shrink-0 mt-0.5" />
-                        <span>{onlineError}</span>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    <div className="text-center py-5 bg-gradient-to-b from-emerald-900/20 to-transparent border border-emerald-500/15 rounded-xl">
-                      <div className="text-xs text-emerald-400/60 font-semibold uppercase tracking-widest mb-1">{'\u{1F511}'} {'\u0E23\u0E2B\u0E31\u0E2A\u0E2B\u0E49\u0E2D\u0E07'}</div>
-                      <div className="text-4xl font-black text-emerald-300 tracking-[0.5em] font-mono select-all">{onlineRoomCode}</div>
-                      <div className="text-xs text-slate-500 mt-2">{'\u0E1A\u0E2D\u0E01\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E19\u0E43\u0E2A\u0E48\u0E23\u0E2B\u0E31\u0E2A\u0E19\u0E35\u0E49\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E40\u0E02\u0E49\u0E32\u0E23\u0E48\u0E27\u0E21!'}</div>
-                    </div>
-
-                    <div>
-                      <div className="text-sm font-semibold text-slate-300 mb-2">{'\u{1F465}'} {'\u0E1C\u0E39\u0E49\u0E40\u0E25\u0E48\u0E19'} ({onlinePlayers.length}/4)</div>
-                      <div className="grid grid-cols-2 gap-2">
-                        {onlinePlayers.map((player: any) => (
-                          <div key={player.id} className="flex items-center gap-2.5 p-2.5 bg-slate-900/40 border border-white/5 rounded-xl">
-                            <span className="text-xl">{player.avatar}</span>
-                            <div className="min-w-0 flex-1">
-                              <div className="text-sm font-bold text-white truncate">{player.name}</div>
-                              <div className="text-[10px] text-slate-500">{player.isHost ? '\u{1F451} \u0E42\u0E2E\u0E2A\u0E15\u0E4C' : '\u{1F464} \u0E1C\u0E39\u0E49\u0E40\u0E25\u0E48\u0E19'}</div>
-                            </div>
-                          </div>
-                        ))}
-                        {Array.from({ length: 4 - onlinePlayers.length }).map((_, i) => (
-                          <div key={i} className="flex items-center justify-center p-2.5 border border-dashed border-white/8 rounded-xl text-sm text-slate-600 h-14">
-                            <span className="animate-pulse">{'\u0E23\u0E2D\u0E1C\u0E39\u0E49\u0E40\u0E25\u0E48\u0E19...'}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      {onlineIsHost ? (
-                        <motion.button
-                          whileHover={{ scale: 1.02 }}
-                          whileTap={{ scale: 0.96 }}
-                          onClick={() => wsRef.current?.send(JSON.stringify({ type: 'START_GAME' }))}
-                          className="w-full py-3.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white font-black text-base rounded-xl shadow-lg cursor-pointer transition flex items-center justify-center gap-2"
-                        >
-                          <Play size={16} fill="currentColor" /> {'\u0E40\u0E23\u0E34\u0E48\u0E21\u0E40\u0E01\u0E21!'}
-                        </motion.button>
-                      ) : (
-                        <div className="text-center py-3.5 bg-slate-900/30 border border-dashed border-white/10 rounded-xl text-slate-400 text-sm font-semibold animate-pulse">
-                          {'\u23F3'} {'\u0E23\u0E2D\u0E42\u0E2E\u0E2A\u0E15\u0E4C\u0E01\u0E14\u0E40\u0E23\u0E34\u0E48\u0E21\u0E40\u0E01\u0E21...'}
+                      {onlineError && (
+                        <div className="text-[10px] font-mono text-red-500 bg-red-950/40 p-2 border border-red-900 flex items-center gap-2">
+                          <AlertTriangle size={14} /> {onlineError}
                         </div>
                       )}
-                      <button
-                        onClick={disconnectWebSocket}
-                        className="w-full py-2.5 text-red-400 hover:text-red-300 text-sm font-semibold cursor-pointer transition hover:bg-red-500/5 rounded-xl"
-                      >
-                        {'\u{1F6AA}'} {'\u0E2D\u0E2D\u0E01\u0E08\u0E32\u0E01\u0E2B\u0E49\u0E2D\u0E07'}
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
-          </motion.div>
-        </AnimatePresence>
-      </div>
+                    </>
+                  ) : (
+                    <>
+                      {/* Connected State */}
+                      <div className="flex justify-between items-center border-b-4 border-slate-800 pb-4">
+                        <div>
+                          <label className="arcade-label !text-emerald-400 animate-pulse">รหัสผ่านห้อง (ส่งให้เพื่อน)</label>
+                          <div className="text-4xl font-black arcade-text-highlight tracking-[8px] font-mono drop-shadow-[0_0_10px_rgba(255,255,255,0.5)]">
+                            {onlineRoomCode}
+                          </div>
+                        </div>
+                        <button 
+                          onClick={disconnectWebSocket} 
+                          className="px-3 py-2 border-2 border-red-900 text-red-500 hover:bg-red-950 font-mono text-[10px] uppercase font-bold"
+                        >
+                          ออก
+                        </button>
+                      </div>
 
-      {/* ====== STEP 3: Settings ====== */}
-      <div className="mb-6">
-        <div className="flex items-center gap-2 mb-3 px-1">
-          <div className="w-7 h-7 rounded-full bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center text-white text-xs font-black shadow">3</div>
-          <h2 className="text-base font-bold text-white">{'\u0E15\u0E31\u0E49\u0E07\u0E04\u0E48\u0E32\u0E40\u0E01\u0E21'}</h2>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 flex-1">
+                        {onlinePlayers.map((p: any) => (
+                          <div key={p.id} className={`arcade-slot ${p.id.includes('player') ? 'is-active !border-emerald-500 !bg-emerald-500/10' : ''}`}>
+                            <span className="text-3xl">{p.avatar}</span>
+                            <span className="text-sm font-bold arcade-text-highlight truncate flex-1 font-mono">{p.name}</span>
+                            {p.isHost && <span className="text-[8px] bg-amber-500 text-black px-1.5 py-0.5 font-black uppercase">หัวห้อง</span>}
+                          </div>
+                        ))}
+                        {[...Array(Math.max(0, 4 - onlinePlayers.length))].map((_, i) => (
+                          <div key={`empty-${i}`} className="arcade-slot opacity-30 border-dashed border-slate-600">
+                            <div className="w-8 h-8 rounded-full bg-slate-800 animate-pulse" />
+                            <span className="text-xs text-slate-500 font-bold uppercase font-mono tracking-widest">รอผู้เล่น...</span>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="mt-4">
+                        {onlineIsHost ? (
+                          <button
+                            onClick={() => wsRef.current?.send(JSON.stringify({ type: 'START_GAME' }))}
+                            className="arcade-btn-start !py-4"
+                          >
+                            เริ่มประลอง!
+                          </button>
+                        ) : (
+                          <div className="text-center py-4 bg-slate-900/30 border-2 border-dashed border-slate-700 text-slate-400 text-xs font-mono font-bold animate-pulse">
+                            กำลังรอหัวห้องกดเริ่มเกม...
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+            </motion.div>
+          </AnimatePresence>
         </div>
 
-        <div className="grid grid-cols-3 gap-3">
-          {/* Speed */}
-          <div className="bg-white/[0.04] rounded-2xl border border-white/8 p-4">
-            <div className="text-xs font-semibold text-slate-400 mb-2.5">{'\u23F1\uFE0F'} {'\u0E04\u0E27\u0E32\u0E21\u0E40\u0E23\u0E47\u0E27'}</div>
-            <div className="space-y-1.5">
-              {[
-                { name: '\u{1F422} \u0E0A\u0E34\u0E25\u0E46', ms: 1800 },
-                { name: '\u{1F44D} \u0E1B\u0E01\u0E15\u0E34', ms: 1200 },
-                { name: '\u26A1 \u0E40\u0E23\u0E47\u0E27', ms: 600 }
-              ].map((spd) => (
-                <button
-                  key={spd.ms}
-                  onClick={() => { playCardSound(); setGameSpeed(spd.ms); }}
-                  className={`w-full py-2 rounded-lg text-xs font-bold cursor-pointer transition-all ${
-                    gameSpeed === spd.ms
-                      ? 'bg-blue-500 text-white shadow-md'
-                      : 'bg-white/[0.03] text-slate-500 hover:text-white hover:bg-white/[0.06]'
-                  }`}
-                >
-                  {spd.name}
-                </button>
-              ))}
-            </div>
+        {/* --- RIGHT: SYSTEM SETTINGS --- */}
+        <div className="md:col-span-5 flex flex-col gap-6">
+          <div className="arcade-step-title !mb-0 !bg-indigo-500/10 !border-indigo-400">
+            <span className="arcade-step-num !text-indigo-400">04</span>
+            <h2 className="arcade-step-text text-sm">ตั้งค่าระบบเพิ่มเติม</h2>
           </div>
-
-          {/* Flip Mode */}
-          <div className="bg-white/[0.04] rounded-2xl border border-white/8 p-4">
-            <div className="text-xs font-semibold text-slate-400 mb-2.5">{'\u{1F300}'} {'\u0E42\u0E2B\u0E21\u0E14\u0E1E\u0E25\u0E34\u0E01'}</div>
-            <div className="space-y-1.5">
-              <button
-                onClick={() => { playCardSound(); setIsFlipMode(false); }}
-                className={`w-full py-2 rounded-lg text-xs font-bold cursor-pointer transition-all ${
-                  !isFlipMode ? 'bg-amber-500 text-white shadow-md' : 'bg-white/[0.03] text-slate-500 hover:text-white hover:bg-white/[0.06]'
-                }`}
-              >
-                {'\u{1F0CF}'} {'\u0E1B\u0E01\u0E15\u0E34'}
-              </button>
-              <button
-                onClick={() => { playCardSound(); setIsFlipMode(true); }}
-                className={`w-full py-2 rounded-lg text-xs font-bold cursor-pointer transition-all ${
-                  isFlipMode ? 'bg-gradient-to-r from-purple-500 to-indigo-500 text-white shadow-md' : 'bg-white/[0.03] text-slate-500 hover:text-white hover:bg-white/[0.06]'
-                }`}
-              >
-                {'\u{1F300}'} Flip
-              </button>
-              <div className="text-[9px] text-slate-600 text-center pt-0.5">{'\u0E01\u0E32\u0E23\u0E4C\u0E14\u0E1E\u0E34\u0E40\u0E28\u0E29\u0E40\u0E1E\u0E34\u0E48\u0E21\u0E1E\u0E25\u0E31\u0E07!'}</div>
+          
+          <div className="arcade-panel flex flex-col gap-6">
+            {/* Game Speed */}
+            <div>
+              <label className="arcade-label text-[9px] mb-2 flex justify-between">
+                <span>ความเร็วเกม</span>
+                <span className="text-slate-500">{gameSpeed === 1800 ? 'ช้า' : gameSpeed === 1200 ? 'ปกติ' : 'เร็วสุด'}</span>
+              </label>
+              <div className="arcade-toggle-group">
+                <button onClick={() => { playCardSound(); setGameSpeed(1800); }} className={`arcade-toggle-btn !py-3 ${gameSpeed === 1800 ? 'active' : ''}`}>ช้า</button>
+                <button onClick={() => { playCardSound(); setGameSpeed(1200); }} className={`arcade-toggle-btn !py-3 ${gameSpeed === 1200 ? 'active' : ''}`}>ปกติ</button>
+                <button onClick={() => { playCardSound(); setGameSpeed(600); }} className={`arcade-toggle-btn !py-3 ${gameSpeed === 600 ? 'active' : ''}`}>เทอร์โบ</button>
+              </div>
             </div>
-          </div>
 
-          {/* Card Theme */}
-          <div className="bg-white/[0.04] rounded-2xl border border-white/8 p-4">
-            <div className="text-xs font-semibold text-slate-400 mb-2.5">{'\u{1F3A8}'} {'\u0E18\u0E35\u0E21\u0E01\u0E32\u0E23\u0E4C\u0E14'}</div>
-            <div className="space-y-1.5">
+            {/* Flip Mode */}
+            <div>
+              <label className="arcade-label text-[9px] mb-2">โหมดพลิกการ์ด (FLIP)</label>
+              <div className="arcade-toggle-group">
+                <button onClick={() => { playCardSound(); setIsFlipMode(false); }} className={`arcade-toggle-btn !py-3 ${!isFlipMode ? 'active' : ''}`}>ปิด</button>
+                <button onClick={() => { playCardSound(); setIsFlipMode(true); }} className={`arcade-toggle-btn !py-3 ${isFlipMode ? 'active' : ''}`}>เปิด</button>
+              </div>
+            </div>
+            
+            {/* Start Button moved here to balance the right column */}
+            <div className="mt-4">
               <button
-                onClick={() => { playCardSound(); setCardTheme('pixel'); }}
-                className={`w-full py-2 rounded-lg text-xs font-bold cursor-pointer transition-all ${
-                  cardTheme === 'pixel' ? 'bg-orange-500 text-white shadow-md' : 'bg-white/[0.03] text-slate-500 hover:text-white hover:bg-white/[0.06]'
-                }`}
+                onClick={handleMainStartMatch}
+                className="arcade-btn-start !py-5 !text-xl"
+                disabled={lobbyMode === 'online_mock'} // Online mode uses its own start button
+                style={{ opacity: lobbyMode === 'online_mock' ? 0.3 : 1, cursor: lobbyMode === 'online_mock' ? 'not-allowed' : 'pointer' }}
               >
-                {'\u{1F47E}'} {'\u0E1E\u0E34\u0E01\u0E40\u0E0B\u0E25\u0E2D\u0E32\u0E23\u0E4C\u0E15'}
+                เริ่มประลอง!
               </button>
-              <button
-                onClick={() => { playCardSound(); setCardTheme('neon'); }}
-                className={`w-full py-2 rounded-lg text-xs font-bold cursor-pointer transition-all ${
-                  cardTheme === 'neon' ? 'bg-cyan-500 text-white shadow-md' : 'bg-white/[0.03] text-slate-500 hover:text-white hover:bg-white/[0.06]'
-                }`}
-              >
-                {'\u26A1'} {'\u0E19\u0E35\u0E2D\u0E2D\u0E19'}
-              </button>
-              <div className="text-[9px] text-slate-600 text-center pt-0.5">{'\u0E40\u0E1B\u0E25\u0E35\u0E48\u0E22\u0E19\u0E2B\u0E19\u0E49\u0E32\u0E15\u0E32\u0E01\u0E32\u0E23\u0E4C\u0E14'}</div>
+              {lobbyMode !== 'online_mock' && (
+                <p className="text-center text-[8px] text-slate-600 mt-3 font-mono tracking-widest uppercase">
+                  Insert coin to continue
+                </p>
+              )}
             </div>
           </div>
         </div>
+
       </div>
 
-      {/* ====== START BUTTON ====== */}
-      <motion.button
-        whileHover={{ scale: 1.03, y: -2 }}
-        whileTap={{ scale: 0.96 }}
-        onClick={handleMainStartMatch}
-        className="w-full py-5 rounded-2xl text-xl font-black text-white bg-gradient-to-r from-pink-500 via-orange-500 to-yellow-500 hover:from-pink-400 hover:via-orange-400 hover:to-yellow-400 shadow-[0_10px_40px_rgba(251,146,60,0.3)] hover:shadow-[0_14px_50px_rgba(251,146,60,0.4)] transition-all cursor-pointer flex items-center justify-center gap-3 mb-6"
-      >
-        <motion.span
-          animate={{ scale: [1, 1.2, 1] }}
-          transition={{ duration: 1, repeat: Infinity, repeatDelay: 1.5 }}
-          className="text-3xl"
-        >
-          {'\u{1F3AE}'}
-        </motion.span>
-        {'\u0E40\u0E23\u0E34\u0E48\u0E21\u0E40\u0E01\u0E21!'}
-      </motion.button>
 
-      {/* ====== Bottom Info ====== */}
-      <div className="grid grid-cols-2 gap-3 mb-4">
-        {/* Nont-Dam card */}
+      {/* ========================================= */}
+      {/* BOTTOM INFO CARDS                         */}
+      {/* ========================================= */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-8 pt-8 border-t-2 border-slate-800/50">
         <button
           type="button"
-          onClick={() => {
-            playNontDamSound();
-            setShowcaseQuoteIndex((prev) => (prev + 1) % 5);
-          }}
-          className="bg-purple-500/8 border border-purple-500/15 rounded-2xl p-4 cursor-pointer hover:bg-purple-500/12 transition-all text-left group"
+          onClick={() => { playNontDamSound(); setShowcaseQuoteIndex((prev) => (prev + 1) % 5); }}
+          className="arcade-panel !p-4 hover:border-purple-500 transition-colors text-left group flex items-start gap-4 overflow-hidden relative"
         >
-          <div className="flex items-center gap-2 mb-2">
-            <span className="text-2xl">{'\u{1F451}'}</span>
-            <div>
-              <div className="text-xs font-bold text-purple-300">{'\u0E01\u0E32\u0E23\u0E4C\u0E14\u0E19\u0E19\u0E17\u0E4C\u0E14\u0E33'}</div>
-              <div className="text-[9px] text-slate-500">{'\u0E01\u0E14\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E1F\u0E31\u0E07\u0E40\u0E2A\u0E35\u0E22\u0E07!'}</div>
+          {/* Subtle background glow */}
+          <div className="absolute top-1/2 left-1/4 -translate-y-1/2 w-20 h-20 bg-purple-500/10 blur-2xl rounded-full" />
+          
+          <motion.div
+            animate={{ rotateY: 360 }}
+            transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
+            style={{ transformStyle: 'preserve-3d', perspective: '1000px' }}
+            className="shrink-0 relative z-10 drop-shadow-[0_0_15px_rgba(168,85,247,0.4)] w-24 h-36 md:w-28 md:h-[10.5rem]"
+          >
+            {/* Front: Nont-Dam Card */}
+            <div style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden' }} className="absolute inset-0">
+              <NontDamCard card={{ id: 'preview-nont', color: 'wild' as CardColor, value: 'nont_dam' }} playable={true} hoverable={false} size="md" />
             </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="transform group-hover:scale-110 group-hover:rotate-3 transition-all shrink-0">
-              <NontDamCard
-                card={{ id: 'preview-nont', color: 'wild' as CardColor, value: 'nont_dam' }}
-                playable={true}
-                hoverable={false}
-                size="sm"
-              />
+            {/* Back: Standard UNO Back */}
+            <div style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }} className="absolute inset-0">
+              <UnoCard card={{ id: 'back-preview', color: 'red' as CardColor, value: '0' }} isBack={true} size="md" theme={cardTheme} />
             </div>
-            <p className="text-[10px] text-purple-300/70 italic leading-relaxed flex-1">
+          </motion.div>
+
+          <div className="relative z-10 flex-1 ml-2">
+            <label className="arcade-label !text-purple-400 !mb-2 flex items-center gap-2">
+              <span className="text-xl">👑</span> ข้อมูลการ์ดนนท์ดำ
+            </label>
+            <div className="space-y-1.5 mb-3 font-mono text-xs text-slate-300">
+              <div className="flex gap-2 text-rose-300">ความสามารถหลัก: สุ่มเอฟเฟกต์ 1 ใน 3 อย่าง!</div>
+              <div className="flex gap-2 pl-2"><span className="text-purple-500">1.</span> สลับการ์ดในมือกับคู่แข่ง 1 คน</div>
+              <div className="flex gap-2 pl-2"><span className="text-purple-500">2.</span> หมุนเวียนการ์ดในมือของทุกคนรอบวง</div>
+              <div className="flex gap-2 pl-2"><span className="text-purple-500">3.</span> แรปว้ากให้คนถัดไปจั่ว 3 ใบ + ข้ามตา!</div>
+              <div className="flex gap-2 text-cyan-300">★ บังคับเปลี่ยนสีหลักเสมอ (Wild)</div>
+            </div>
+            <p className="text-xs text-purple-400/80 italic leading-relaxed font-mono border-t border-purple-900/50 pt-2.5">
               "{nontDamQuotes[showcaseQuoteIndex]}"
             </p>
           </div>
         </button>
 
-        {/* How to play */}
         <button
           type="button"
           onClick={() => { playCardSound(); setShowHowTo(true); }}
-          className="bg-amber-500/8 border border-amber-500/15 rounded-2xl p-4 cursor-pointer hover:bg-amber-500/12 transition-all text-left"
+          className="arcade-panel !p-4 hover:border-amber-500 transition-colors text-left"
         >
-          <div className="flex items-center gap-2 mb-2">
-            <span className="text-2xl">{'\u{1F4D6}'}</span>
-            <div>
-              <div className="text-xs font-bold text-amber-300">{'\u0E27\u0E34\u0E18\u0E35\u0E40\u0E25\u0E48\u0E19 & \u0E01\u0E0E'}</div>
-              <div className="text-[9px] text-slate-500">{'\u0E01\u0E14\u0E14\u0E39\u0E04\u0E39\u0E48\u0E21\u0E37\u0E2D\u0E40\u0E15\u0E47\u0E21'}</div>
-            </div>
-          </div>
-          <div className="space-y-1">
-            <div className="text-[10px] text-slate-400 flex items-center gap-1.5"><span className="text-amber-400">{'\u2022'}</span> {'\u0E25\u0E07\u0E01\u0E32\u0E23\u0E4C\u0E14\u0E2A\u0E35\u0E2B\u0E23\u0E37\u0E2D\u0E04\u0E48\u0E32\u0E40\u0E14\u0E35\u0E22\u0E27\u0E01\u0E31\u0E19'}</div>
-            <div className="text-[10px] text-slate-400 flex items-center gap-1.5"><span className="text-amber-400">{'\u2022'}</span> {'\u0E01\u0E32\u0E23\u0E4C\u0E14 Wild \u0E43\u0E0A\u0E49\u0E44\u0E14\u0E49\u0E15\u0E25\u0E2D\u0E14'}</div>
-            <div className="text-[10px] text-slate-400 flex items-center gap-1.5"><span className="text-amber-400">{'\u2022'}</span> {'\u0E40\u0E2B\u0E25\u0E37\u0E2D 1 \u0E43\u0E1A \u0E15\u0E49\u0E2D\u0E07\u0E01\u0E14 UNO!'}</div>
-            <div className="text-[10px] text-slate-400 flex items-center gap-1.5"><span className="text-amber-400">{'\u2022'}</span> {'\u0E25\u0E07\u0E01\u0E32\u0E23\u0E4C\u0E14\u0E2B\u0E21\u0E14\u0E21\u0E37\u0E2D\u0E01\u0E48\u0E2D\u0E19\u0E0A\u0E19\u0E30!'}</div>
+          <label className="arcade-label !text-amber-400 !mb-2 flex items-center gap-2">
+            <span className="text-lg">📖</span> กติกาการประลอง
+          </label>
+          <div className="space-y-1.5 font-mono text-[9px] text-slate-400 uppercase">
+            <div className="flex gap-2"><span className="text-amber-500">▶</span> วางสีหรือตัวเลขให้ตรงกัน</div>
+            <div className="flex gap-2"><span className="text-amber-500">▶</span> การ์ด Wild ใช้เปลี่ยนสีได้ตลอด</div>
+            <div className="flex gap-2"><span className="text-amber-500">▶</span> เหลือใบสุดท้ายต้องกด อีอ้อ!</div>
+            <div className="flex gap-2"><span className="text-amber-500">▶</span> ไพ่หมดมือคนแรกคือผู้ชนะ</div>
           </div>
         </button>
       </div>
+
     </motion.div>
   );
 }

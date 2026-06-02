@@ -1,20 +1,46 @@
 <div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
+  <h1>🎴 อีอ้อ! Arena (Uno Custom Edition)</h1>
+  <p>เกมการ์ดระดับตำนานในรูปแบบใหม่ ที่ออกแบบมาเพื่อการประลองกับเพื่อนโดยเฉพาะ!</p>
 </div>
 
-# Run and deploy your AI Studio app
+---
 
-This contains everything you need to run your app locally.
+## 📝 เกี่ยวกับโปรเจกต์ (Project Description)
+โปรเจกต์นี้มีต้นแบบมาจากเกม **UNO** ที่ทุกคนคุ้นเคย แต่เราได้นำมาพัฒนาและปรับปรุงให้เป็นแนวทางของตัวเอง โดยมีแรงบันดาลใจหลักคือ **"อยากมีเกมการ์ดเป็นของตัวเองไว้เล่นสนุกๆ กับกลุ่มเพื่อน"** 
 
-View your app in AI Studio: https://ai.studio/apps/3f6bc93d-b4c5-4348-8796-481a5d73efa5
+### 💡 แนวคิดและแรงบันดาลใจ
+*   **Personalization:** ผมอยากสร้างเกมที่มีการ์ด สกิล และรูปภาพที่เป็นสไตล์ของตัวเอง รวมถึงการใส่ชื่อตัวเองลงไปในการ์ดเพื่อให้เกมมีความเท่และมีเอกลักษณ์ไม่ซ้ำใคร
+*   **Self-Learning:** โปรเจกต์นี้พัฒนาขึ้นจากการศึกษาค้นคว้าด้วยตัวเองผ่านทาง **YouTube**, **Google** และการปรึกษา **AI** เพื่อหาข้อมูลและแก้ไขปัญหาต่างๆ ในการเขียนโปรแกรม
 
-## Run Locally
+### ✨ จุดเด่นและแผนในอนาคต
+*   **Custom Mechanics:** ระบบการเล่นที่ปรับแต่งเอง มีการ์ดพิเศษที่มีสกิลเฉพาะตัว (เช่น การ์ดนนท์ดำ)
+*   **Future Art:** ในอนาคตจะมีการออกแบบรูปภาพประกอบ (Artwork) ทั้งหมดด้วยตัวเอง เพื่อให้เป็นเกมของเราอย่างแท้จริง
+*   **Smart AI:** ระบบบอทที่ได้รับการอัปเกรดเป็น AI เชิงกลยุทธ์ ท้าทายผู้เล่นมากขึ้น
+*   **Multiplayer Ready:** รองรับทั้งการเล่นคนเดียวกับ AI และการเล่นออนไลน์กับเพื่อนๆ
 
-**Prerequisites:**  Node.js
+---
 
+## 👤 ข้อมูลผู้พัฒนา (Developer Information)
+*   **รหัสนักศึกษา:** 68067967
+*   **สถาบันการศึกษา:** มหาวิทยาลัยศรีปทุม (Sripatum University - SPU)
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+---
+
+## 🚀 การติดตั้งและเริ่มใช้งาน (Get Started)
+
+**สิ่งที่ต้องมี:** [Node.js](https://nodejs.org/)
+
+1.  **ติดตั้ง dependencies:**
+    ```bash
+    npm install
+    ```
+2.  **ตั้งค่า API Key:**
+    สร้างไฟล์ `.env` (หรือแก้ไขจาก `.env.example`) และใส่ `GEMINI_API_KEY` ของคุณ
+3.  **เริ่มเกม:**
+    ```bash
+    npm run dev
+    ```
+
+---
+
+*โปรเจกต์นี้สร้างขึ้นเพื่อการศึกษาและการเรียนรู้ภายในมหาวิทยาลัยศรีปทุม*

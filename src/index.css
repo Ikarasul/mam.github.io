@@ -132,4 +132,202 @@
   }
 }
 
+/* Arcade Header Styles */
+.arcade-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  margin-bottom: 2.5rem;
+  user-select: none;
+}
+.arcade-header .pixel-logo {
+  width: 7rem;
+  height: 7rem;
+  background: #0e0c0b;
+  border: 4px solid #f59e0b;
+  box-shadow: 0 0 15px #ef4444;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1rem;
+  position: relative;
+}
+.arcade-header .pixel-logo::before {
+  content: '';
+  position: absolute;
+  inset: -8px;
+  border: 2px solid #f59e0b;
+}
+.arcade-header .title-text {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 2.5rem;
+  color: #ffffff;
+  text-shadow: 3px 3px 0px #ef4444;
+  letter-spacing: -2px;
+  margin-top: 0.5rem;
+}
+.arcade-header .subtitle {
+font-family: 'Silkscreen', monospace;
+color: #a855f7;
+font-size: 0.875rem;
+margin-top: 0.5rem;
+letter-spacing: 1px;
+}
 
+/* Arcade Lobby Polish */
+.arcade-step-title {
+display: flex;
+align-items: center;
+gap: 1rem;
+margin-bottom: 1rem;
+padding: 0.5rem;
+border-left: 4px solid #f59e0b;
+background: rgba(245, 158, 11, 0.05);
+}
+.arcade-step-num {
+font-family: 'Press Start 2P', monospace;
+font-size: 0.75rem;
+color: #f59e0b;
+}
+.arcade-step-text {
+font-family: 'Silkscreen', monospace;
+font-size: 1rem;
+color: #ffffff;
+text-transform: uppercase;
+}
+.arcade-mode-card {
+border: 2px solid #334155;
+background: #0e0c0b;
+padding: 1rem;
+transition: all 0.2s;
+cursor: pointer;
+position: relative;
+overflow: hidden;
+}
+.arcade-mode-card.active {
+border-color: #ef4444;
+box-shadow: 0 0 10px #ef4444;
+}
+.arcade-mode-card:hover {
+transform: translateY(-2px);
+border-color: #f59e0b;
+}
+.arcade-btn-start {
+width: 100%;
+padding: 1.5rem;
+background: #ef4444;
+border: 4px solid #000;
+box-shadow: 4px 4px 0px #000, 0 0 20px rgba(239, 68, 68, 0.4);
+font-family: 'Press Start 2P', monospace;
+font-size: 1.25rem;
+color: #ffffff;
+transition: all 0.1s;
+text-transform: uppercase;
+}
+.arcade-btn-start:hover {
+transform: translate(-2px, -2px);
+box-shadow: 6px 6px 0px #000, 0 0 30px rgba(239, 68, 68, 0.6);
+}
+.arcade-btn-start:active {
+  transform: translate(2px, 2px);
+  box-shadow: 0px 0px 0px #000;
+}
+
+/* --- Foundational Arcade UI --- */
+.arcade-panel {
+  background: #1e1e2e;
+  border: 2px solid #2a2a4a;
+  padding: 1.25rem;
+  border-radius: 8px;
+}
+.arcade-input {
+  width: 100%;
+  background: #161622;
+  border: 2px solid #2a2a4a;
+  color: #e2e8f0;
+  font-family: 'Silkscreen', monospace;
+  font-size: 1rem;
+  padding: 0.75rem 1rem;
+  outline: none;
+  transition: all 0.2s;
+  border-radius: 6px;
+}
+.arcade-input:focus {
+  border-color: #c084fc;
+  box-shadow: 0 0 12px rgba(192, 132, 252, 0.25);
+}
+.arcade-input::placeholder {
+  color: #64748b;
+}
+.arcade-label {
+  display: block;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.65rem;
+  color: #a78bfa;
+  margin-bottom: 0.5rem;
+  text-transform: uppercase;
+}
+.arcade-text-highlight {
+  color: #f8fafc;
+  text-shadow: 0 0 5px rgba(248, 250, 252, 0.3);
+}
+.arcade-slot {
+  background: #1a1a2e;
+  border: 2px solid #2a2a4a;
+  padding: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  transition: all 0.2s;
+  border-radius: 8px;
+}
+.arcade-slot.is-active {
+  border-color: #fb7185;
+  background: rgba(251, 113, 133, 0.08);
+}
+.arcade-avatar-btn {
+  width: 3.5rem;
+  height: 3.5rem;
+  background: #161622;
+  border: 2px solid #a78bfa;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.75rem;
+  cursor: pointer;
+  transition: all 0.1s;
+  box-shadow: 3px 3px 0px rgba(0,0,0,0.3);
+  border-radius: 8px;
+}
+.arcade-avatar-btn:active {
+  transform: translate(2px, 2px);
+  box-shadow: 0px 0px 0px rgba(0,0,0,0);
+}
+.arcade-toggle-group {
+  display: flex;
+  border: 2px solid #2a2a4a;
+  background: #161622;
+  overflow: hidden;
+  border-radius: 6px;
+}
+.arcade-toggle-btn {
+  flex: 1;
+  padding: 0.65rem 0.5rem;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.55rem;
+  color: #94a3b8;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: center;
+  border: none;
+  background: transparent;
+}
+.arcade-toggle-btn.active {
+  background: #c084fc;
+  color: #fff;
+}
+.arcade-toggle-btn:not(.active):hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #fff;
+}
