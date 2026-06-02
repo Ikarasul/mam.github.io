@@ -564,9 +564,9 @@ export const UnoCard: React.FC<UnoCardProps> = ({
                }} 
           />
 
-          {/* Central Oval Slanted with Crimson glow */}
+          {/* Central Oval Slanted with Crimson/Violet glow */}
           <div 
-            className="absolute -rotate-[22deg] w-[140%] h-[55%] border-[3.5px] shadow-[0_0_20px_rgba(239,68,68,0.5)]"
+            className={`absolute -rotate-[22deg] w-[140%] h-[55%] border-[3.5px] transition-all duration-500 ${isDark ? 'shadow-[0_0_20px_rgba(168,85,247,0.55)]' : 'shadow-[0_0_20px_rgba(239,68,68,0.55)]'}`}
             style={{ 
               borderRadius: '50%',
               backgroundColor: isDark ? '#581c87' : '#dc2626', // Purple back of flip / red standard back

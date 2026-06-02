@@ -227,6 +227,19 @@ export default function App() {
               ? newActiveCard.darkValue 
               : newActiveCard?.value;
 
+            // Update AI Thinking status based on current player
+            const currentPlayer = payload.players[payload.currentPlayerIndex];
+            if (currentPlayer && currentPlayer.isBot) {
+              setIsAiThinking(true);
+              const botProfile = BOT_PROFILES.find(b => b.id === currentPlayer.id) || 
+                                 (currentPlayer.id.includes('bot-2') ? BOT_PROFILES[1] : 
+                                  currentPlayer.id.includes('bot-3') ? BOT_PROFILES[2] : BOT_PROFILES[0]);
+              setThinkingBubble(botProfile ? botProfile.quote : "ศึกนี้ข้าต้องขิงระเบิดสะเก็ดดาว!");
+            } else {
+              setIsAiThinking(false);
+              setThinkingBubble(null);
+            }
+
             if (newActiveId && newActiveId !== prevActiveId && cardValue === 'nont_dam') {
               playNontDamSound();
               const lastLog = payload.logs[payload.logs.length - 1];
@@ -994,11 +1007,36 @@ export default function App() {
     playDrawSound();
 
     const deckCopy = [...gameState.deck];
-    const drawnCard = deckCopy.pop();
+    let drawnCard = deckCopy.pop();
 
     if (!drawnCard) {
-      // Reconstitute pile
-      addLog(`⚠️ การ์ดหมดกองจั่ว สับกองการ์ดใหม่!`, 'system');
+      // Reconstitute pile from discard pile
+      if (gameState.discardPile.length <= 1) {
+        addLog(`⚠️ การ์ดหมดกองจั่วและไม่มีการ์ดให้สับใหม่! จบเห่แน่ๆ!`, 'system');
+        return;
+      }
+      
+      addLog(`⚠️ การ์ดหมดกองจั่ว สับกองการ์ดใหม่จากกองที่ทิ้งแล้ว!`, 'system');
+      const freshDeck = shuffleDeck(gameState.discardPile.slice(1));
+      const topDiscard = gameState.discardPile[0];
+      
+      const newDrawn = freshDeck.pop();
+      if (!newDrawn) return;
+      
+      setGameState(prev => ({
+        ...prev,
+        deck: freshDeck,
+        discardPile: [topDiscard],
+        players: prev.players.map((p, index) => {
+          if (index === prev.currentPlayerIndex) {
+            return { ...p, cards: [...p.cards, newDrawn] };
+          }
+          return p;
+        }),
+        currentPlayerIndex: isValidPlay(newDrawn, prev.activeColor, prev.activeValue, prev.flipSide) 
+          ? prev.currentPlayerIndex 
+          : getNextPlayerIndex(prev.currentPlayerIndex, prev.direction)
+      }));
       return;
     }
 
@@ -1034,32 +1072,111 @@ export default function App() {
     const playableCards = bot.cards.filter(c => isValidPlay(c, gameState.activeColor, gameState.activeValue, gameState.flipSide));
 
     if (playableCards.length > 0) {
-      // Strategize playing: Prioritize Action cards first if another bot has few cards, or prioritize color matches
-      // Simple strategy: prefer colored action cards, then normal cards, save wildcards for defense
-      let selectedCard = playableCards[0];
+      const nextPlayerIdx = getNextPlayerIndex(gameState.currentPlayerIndex, gameState.direction);
+      const nextPlayer = gameState.players[nextPlayerIdx];
+      const nextPlayerHandSize = nextPlayer?.cards.length || 0;
+      const isNextPlayerThreat = nextPlayerHandSize <= 2;
 
-      // Find an action card of regular colors
-      const coloredActions = playableCards.filter(c => getCardColor(c, gameState.flipSide) !== 'wild' && ['skip', 'reverse', 'draw2'].includes(getCardValue(c, gameState.flipSide)));
-      const numbers = playableCards.filter(c => getCardColor(c, gameState.flipSide) !== 'wild' && !['skip', 'reverse', 'draw2'].includes(getCardValue(c, gameState.flipSide)));
-      const wilds = playableCards.filter(c => getCardColor(c, gameState.flipSide) === 'wild');
+      // Grouping playable cards
+      const coloredActions = playableCards.filter(c => getCardColor(c, gameState.flipSide) !== 'wild' && ['skip', 'reverse', 'draw2', 'flip'].includes(getCardValue(c, gameState.flipSide)));
+      const numbers = playableCards.filter(c => getCardColor(c, gameState.flipSide) !== 'wild' && !['skip', 'reverse', 'draw2', 'flip', 'nont_dam'].includes(getCardValue(c, gameState.flipSide)));
+      const wilds = playableCards.filter(c => getCardColor(c, gameState.flipSide) === 'wild' || getCardValue(c, gameState.flipSide) === 'nont_dam');
 
-      if (coloredActions.length > 0) {
-        // play the action card to mess with competitor!
-        selectedCard = coloredActions[Math.floor(Math.random() * coloredActions.length)];
-      } else if (numbers.length > 0) {
-        selectedCard = numbers[Math.floor(Math.random() * numbers.length)];
-      } else if (wilds.length > 0) {
-        selectedCard = wilds[Math.floor(Math.random() * wilds.length)];
+      let selectedCard: Card | null = null;
+
+      if (isNextPlayerThreat) {
+        // STRATEGY: Defensive play - try to skip/draw/reverse
+        const draws = coloredActions.filter(c => getCardValue(c, gameState.flipSide) === 'draw2');
+        const skips = coloredActions.filter(c => getCardValue(c, gameState.flipSide) === 'skip');
+        const reverses = coloredActions.filter(c => getCardValue(c, gameState.flipSide) === 'reverse');
+        const draw4s = wilds.filter(c => getCardValue(c, gameState.flipSide) === 'draw4');
+
+        if (draw4s.length > 0) selectedCard = draw4s[0];
+        else if (draws.length > 0) selectedCard = draws[0];
+        else if (skips.length > 0) selectedCard = skips[0];
+        else if (reverses.length > 0) selectedCard = reverses[0];
       }
+
+      if (!selectedCard) {
+        // STRATEGY: Smart matching or reduction
+        // Prefer numbers of dominant color
+        const colorCounts: Record<string, number> = {};
+        bot.cards.forEach(c => {
+          const color = getCardColor(c, gameState.flipSide);
+          if (color !== 'wild') colorCounts[color] = (colorCounts[color] || 0) + 1;
+        });
+
+        // Sort playable non-wilds by how many cards of that color we have
+        const prioritizedNonWilds = [...numbers, ...coloredActions].sort((a, b) => {
+          const countA = colorCounts[getCardColor(a, gameState.flipSide)] || 0;
+          const countB = colorCounts[getCardColor(b, gameState.flipSide)] || 0;
+          return countB - countA;
+        });
+
+        if (prioritizedNonWilds.length > 0) {
+          selectedCard = prioritizedNonWilds[0];
+        } else if (wilds.length > 0) {
+          // Use wild only if necessary or if it's the only option
+          selectedCard = wilds[0];
+        }
+      }
+
+      // Fallback
+      if (!selectedCard) selectedCard = playableCards[0];
 
       playCard(selectedCard.id, bot.id);
     } else {
       // Draw card
       const deckCopy = [...gameState.deck];
-      const drawnCard = deckCopy.pop();
+      let drawnCard = deckCopy.pop();
 
       if (!drawnCard) {
-        // Suffle pile
+        // Reconstitute pile from discard pile
+        if (gameState.discardPile.length <= 1) {
+          // No more cards, just pass turn to avoid infinite loop
+          const nextIdx = getNextPlayerIndex(gameState.currentPlayerIndex, gameState.direction);
+          setGameState(prev => ({ ...prev, currentPlayerIndex: nextIdx }));
+          return;
+        }
+
+        addLog(`⚠️ การ์ดหมดกองจั่ว สับกองการ์ดใหม่สำหรับ ${bot.name}!`, 'system');
+        const freshDeck = shuffleDeck(gameState.discardPile.slice(1));
+        const topDiscard = gameState.discardPile[0];
+        drawnCard = freshDeck.pop();
+        
+        if (!drawnCard) return;
+
+        const updatedBotCards = [...bot.cards, drawnCard];
+        const isPlayable = isValidPlay(drawnCard, gameState.activeColor, gameState.activeValue, gameState.flipSide);
+        
+        const modifiedPlayers = gameState.players.map(p => {
+          if (p.id === bot.id) {
+            return { ...p, cards: updatedBotCards };
+          }
+          return p;
+        });
+
+        if (isPlayable) {
+          setGameState(prev => ({
+            ...prev,
+            deck: freshDeck,
+            discardPile: [topDiscard],
+            players: modifiedPlayers
+          }));
+          setTimeout(() => {
+            playCard(drawnCard!.id, bot.id);
+          }, 800);
+        } else {
+          const nextIdx = getNextPlayerIndex(gameState.currentPlayerIndex, gameState.direction);
+          setGameState(prev => ({
+            ...prev,
+            deck: freshDeck,
+            discardPile: [topDiscard],
+            players: modifiedPlayers,
+            currentPlayerIndex: nextIdx
+          }));
+          addLog(`📥 ${bot.name} จั่วได้ใบไม่ช่วยชีวิต และต้องผ่านตา`, 'draw');
+        }
         return;
       }
 
