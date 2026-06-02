@@ -9,8 +9,9 @@ import { generateDeck, shuffleDeck, isValidPlay, getCardColorClass, getCardColor
 import { UnoCard } from './components/UnoCard';
 import { ColorPickerModal } from './components/ColorPickerModal';
 import { NontDamCard, NontDamPixelArt } from './components/NontDamCard';
+import { GunCard } from './components/GunCard';
 import { LobbyScreen } from './components/LobbyScreen';
-import { playCardSound, playDrawSound, playUnoSound, playWinSound, playAlertSound, toggleSound, isSoundEnabled, playNontDamSound } from './utils/audio';
+import { playCardSound, playDrawSound, playUnoSound, playWinSound, playAlertSound, toggleSound, isSoundEnabled, playNontDamSound, playGunScatterSound } from './utils/audio';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Volume2, 
@@ -52,6 +53,8 @@ export default function App() {
   const [soundOn, setSoundOn] = useState<boolean>(true);
   const [showHowTo, setShowHowTo] = useState<boolean>(false);
   const [showcaseQuoteIndex, setShowcaseQuoteIndex] = useState<number>(0);
+  const [showcaseGunQuoteIndex, setShowcaseGunQuoteIndex] = useState<number>(0);
+  const [gunScatterActive, setGunScatterActive] = useState<boolean>(false);
   const [isFlipMode, setIsFlipMode] = useState<boolean>(true); // Default to true so users see it immediately!
   const [cardTheme, setCardTheme] = useState<'pixel' | 'neon'>('pixel'); // Default to pixel art!
 
@@ -686,6 +689,8 @@ export default function App() {
 
     if (getCardValue(cardToPlay, gameState.flipSide) === 'nont_dam') {
       playNontDamSound();
+    } else if (getCardValue(cardToPlay, gameState.flipSide) === 'ai_gun') {
+      playGunScatterSound();
     } else {
       playCardSound();
     }
@@ -850,6 +855,44 @@ export default function App() {
       setTimeout(() => {
         setNontDamVisualEffect(null);
       }, 4200);
+    }
+
+    if (getCardValue(cardToPlay, gameState.flipSide) === 'ai_gun') {
+      let detailLog = "";
+      
+      afterPlayPlayers.forEach((p) => {
+        if (p.id !== authorPlayerId) {
+          const oldLen = p.cards.length;
+          const possibleDeltas = [-2, -1, 0, 1, 2];
+          const delta = possibleDeltas[Math.floor(Math.random() * possibleDeltas.length)];
+          const targetLen = Math.max(1, oldLen + delta);
+          
+          if (targetLen > oldLen) {
+            const addedCount = targetLen - oldLen;
+            const extra = popCardsFromLocalDeck(addedCount);
+            p.cards = [...p.cards, ...extra];
+          } else if (targetLen < oldLen) {
+            p.cards = p.cards.slice(0, targetLen);
+          } else {
+            p.cards = shuffleDeck(p.cards);
+          }
+          
+          const changeText = targetLen > oldLen 
+            ? `ได้รับเพิ่ม ${targetLen - oldLen} ใบ` 
+            : targetLen < oldLen 
+            ? `สลายลดลง ${oldLen - targetLen} ใบ` 
+            : `สะบัดเก็บใหม่ดวงเท่าเดิม`;
+            
+          detailLog += ` [${p.name}: ${changeText} (${targetLen} ใบ)]`;
+        }
+      });
+      
+      setGunScatterActive(true);
+      setTimeout(() => {
+        setGunScatterActive(false);
+      }, 1600);
+      
+      logMessage += ` 👾 ไอกัน (AI-GUN Chaos) ร่างยักษ์ใหญ่พังกำแพงเปิดแร็คเก็ต! ยิงพลังผลักโต๊ะกระเจิงทำไพ่กระจายปลิวว่อน! คู่แข่งต้องเก็บขึ้นมือใหม่แล้วแต่ดวง: ${detailLog} ส่วนทางฝั่งของ ${activePlayer.name} การ์ดลดลงไป 1 ใบตามกฎกติกาสวรรค์! 🍔💨`;
     }
 
     const finishNormalTurn = (specifiedColor: CardColor) => {
@@ -1092,7 +1135,7 @@ export default function App() {
         hasSaidUno: newHasSaidUno
       }));
 
-      addLog(logMessage, 'system');
+      addLog(logMsg, 'system');
       // Clear penalty timer if one of the victims was being timed
       if (unoDeclareWindow && victims.some(v => v.id === unoDeclareWindow.playerId)) {
         setUnoDeclareWindow(null);
@@ -1730,6 +1773,7 @@ export default function App() {
                 isFlipMode={isFlipMode}
                 cardTheme={cardTheme}
                 showcaseQuoteIndex={showcaseQuoteIndex}
+                showcaseGunQuoteIndex={showcaseGunQuoteIndex}
                 onlineRoomCode={onlineRoomCode}
                 onlinePlayerId={onlinePlayerId}
                 onlinePlayers={onlinePlayers}
@@ -1747,10 +1791,12 @@ export default function App() {
                 setIsFlipMode={setIsFlipMode}
                 setCardTheme={setCardTheme}
                 setShowcaseQuoteIndex={setShowcaseQuoteIndex}
+                setShowcaseGunQuoteIndex={setShowcaseGunQuoteIndex}
                 setRoomCodeInput={setRoomCodeInput}
                 setShowHowTo={setShowHowTo}
                 playCardSound={playCardSound}
                 playNontDamSound={playNontDamSound}
+                playGunScatterSound={playGunScatterSound}
                 connectWebSocket={connectWebSocket}
                 disconnectWebSocket={disconnectWebSocket}
                 handleMainStartMatch={handleMainStartMatch}
@@ -1766,6 +1812,8 @@ export default function App() {
                 {/* THE BIG GAME TABLE */}
                 <div className={`w-full max-w-full flex-1 flex flex-col justify-between items-center relative rounded-3xl p-3 sm:p-5 border transition-all duration-1000 overflow-hidden ${
                   nontDamVisualEffect ? 'animate-nont-shake animate-flash-purple' : ''
+                } ${
+                  gunScatterActive ? 'animate-nont-shake animate-flash-red' : ''
                 } ${
                   gameState.flipSide === 'dark' ? 'border-purple-950/40' : 'border-emerald-950/40'
                 }`}>

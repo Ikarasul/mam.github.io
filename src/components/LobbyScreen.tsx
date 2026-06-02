@@ -2,6 +2,7 @@ import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { RefreshCw, AlertTriangle, Users, Globe, Play, Copy, Check } from 'lucide-react';
 import { NontDamCard } from './NontDamCard';
+import { GunCard } from './GunCard';
 import { UnoCard } from './UnoCard';
 import { CardColor } from '../types';
 
@@ -31,6 +32,7 @@ interface LobbyScreenProps {
   isFlipMode: boolean;
   cardTheme: 'pixel' | 'neon';
   showcaseQuoteIndex: number;
+  showcaseGunQuoteIndex: number;
   onlineRoomCode: string | null;
   onlinePlayerId: string | null;
   onlinePlayers: any[];
@@ -51,11 +53,13 @@ interface LobbyScreenProps {
   setIsFlipMode: (flip: boolean) => void;
   setCardTheme: (theme: 'pixel' | 'neon') => void;
   setShowcaseQuoteIndex: React.Dispatch<React.SetStateAction<number>>;
+  setShowcaseGunQuoteIndex: React.Dispatch<React.SetStateAction<number>>;
   setRoomCodeInput: (code: string) => void;
   setShowHowTo: (show: boolean) => void;
   // Actions
   playCardSound: () => void;
   playNontDamSound: () => void;
+  playGunScatterSound: () => void;
   connectWebSocket: (action: 'create' | 'join', codeToJoin?: string) => void;
   disconnectWebSocket: () => void;
   handleMainStartMatch: () => void;
@@ -65,16 +69,17 @@ interface LobbyScreenProps {
 export function LobbyScreen(props: LobbyScreenProps) {
   const {
     lobbyMode, lobbySlots, userName, gameSpeed, isFlipMode, cardTheme,
-    showcaseQuoteIndex, onlineRoomCode, onlinePlayers, onlineIsHost,
+    showcaseQuoteIndex, showcaseGunQuoteIndex, onlineRoomCode, onlinePlayers, onlineIsHost,
     roomCodeInput, onlineError, isConnecting, botProfiles,
     onlineServerAddr, setOnlineServerAddr,
     setLobbyMode, setLobbySlots, setUserName, setGameSpeed, setIsFlipMode,
-    setCardTheme, setShowcaseQuoteIndex, setRoomCodeInput, setShowHowTo,
-    playCardSound, playNontDamSound, connectWebSocket, disconnectWebSocket,
+    setCardTheme, setShowcaseQuoteIndex, setShowcaseGunQuoteIndex, setRoomCodeInput, setShowHowTo,
+    playCardSound, playNontDamSound, playGunScatterSound, connectWebSocket, disconnectWebSocket,
     handleMainStartMatch, wsRef, botsEnabled, onToggleBots
   } = props;
 
   const [copied, setCopied] = React.useState(false);
+  const [currentSlide, setCurrentSlide] = React.useState(0);
 
   const handleCopyCode = () => {
     if (onlineRoomCode) {
@@ -103,6 +108,14 @@ export function LobbyScreen(props: LobbyScreenProps) {
     "\u{1F92A} \u0E22\u0E34\u0E48\u0E07\u0E41\u0E23\u0E1B\u0E22\u0E34\u0E48\u0E07\u0E23\u0E31\u0E27 \u0E15\u0E31\u0E1A\u0E46\u0E46 \u0E2B\u0E39\u0E15\u0E36\u0E07!",
     "\u{1F4E2} \u0E41\u0E27\u0E47\u0E01\u0E2A\u0E34\u0E2A\u0E34\u0E1A\u0E40\u0E14\u0E0B\u0E34\u0E40\u0E1A\u0E25 \u0E01\u0E38\u0E21\u0E02\u0E21\u0E31\u0E1A!",
     "\u{1F57A} \u0E2A\u0E25\u0E31\u0E1A\u0E01\u0E32\u0E23\u0E4C\u0E14\u0E1B\u0E48\u0E27\u0E19\u0E22\u0E31\u0E1A\u0E40\u0E22\u0E34\u0E19\u0E42\u0E22\u0E48\u0E27!"
+  ];
+
+  const aiGunQuotes = [
+    "เห้ย! การ์ดบินกระจายว่อน! แย่งเก็บกันวายป่วงสิเพื่อน! 💨🔥",
+    "ตูไอกันนะแว้ย! ตีนหนักอัดลมกระแทกจานบิน! 🍔⚡",
+    "ระเบิดไพ่ระเบิดมือ! ดัดแสร้งพวกเก็บการ์ดหนาเตอะ! 🎮💥",
+    "ฮั่นแน่! จั่วเข้าหรือลดโควตา? ทุกอย่างวัดดวงรอบวง! 📢👑",
+    "ไพ่ข้าลดไปใบ ส่วนสูจงโดนกระจัดกระจายเก็บยับ! 🤪⚡"
   ];
 
   return (
@@ -567,60 +580,156 @@ export function LobbyScreen(props: LobbyScreenProps) {
       {/* BOTTOM INFO CARDS                         */}
       {/* ========================================= */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-8 pt-8 border-t-2 border-slate-800/50">
-        <button
-          type="button"
-          onClick={() => { playNontDamSound(); setShowcaseQuoteIndex((prev) => (prev + 1) % 5); }}
-          className="arcade-panel !p-4 hover:border-purple-500 transition-colors text-left group flex items-start gap-4 overflow-hidden relative"
-        >
-          {/* Subtle background glow */}
-          <div className="absolute top-1/2 left-1/4 -translate-y-1/2 w-20 h-20 bg-purple-500/10 blur-2xl rounded-full" />
-          
-          <motion.div
-            animate={{ rotateY: 360 }}
-            transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
-            style={{ transformStyle: 'preserve-3d', perspective: '1000px' }}
-            className="shrink-0 relative z-10 drop-shadow-[0_0_15px_rgba(168,85,247,0.4)] w-24 h-36 md:w-28 md:h-[10.5rem]"
-          >
-            {/* Front: Nont-Dam Card */}
-            <div style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden' }} className="absolute inset-0">
-              <NontDamCard card={{ id: 'preview-nont', color: 'wild' as CardColor, value: 'nont_dam' }} playable={true} hoverable={false} size="md" />
+        
+        {/* FEATURED CARDS SHOWCASE CAROUSEL */}
+        <div className="arcade-panel !p-4 hover:border-purple-500/30 transition-colors text-left flex flex-col justify-between min-h-[220px] relative overflow-hidden">
+          <div className="flex items-center justify-between mb-4 border-b border-slate-800/60 pb-2.5 z-10 relative">
+            <span className="text-[10px] font-bold text-slate-400 font-mono uppercase tracking-widest">
+              🃏 การ์ดพิเศษห้องประลอง (Showcase)
+            </span>
+            <div className="flex gap-1.5 bg-[#161622] p-0.5 rounded border border-[#2a2a4a]">
+              <button
+                type="button"
+                onClick={() => { playCardSound(); setCurrentSlide(0); }}
+                className={`px-2.5 py-1 text-[8.5px] font-black font-mono transition-all rounded-md cursor-pointer ${
+                  currentSlide === 0 
+                    ? 'bg-purple-600 text-white shadow-[0_0_10px_rgba(147,51,234,0.5)]' 
+                    : 'text-slate-500 hover:text-slate-350'
+                }`}
+              >
+                นนท์ดำ 👑
+              </button>
+              <button
+                type="button"
+                onClick={() => { playCardSound(); setCurrentSlide(1); }}
+                className={`px-2.5 py-1 text-[8.5px] font-black font-mono transition-all rounded-md cursor-pointer ${
+                  currentSlide === 1 
+                    ? 'bg-rose-600 text-white shadow-[0_0_10px_rgba(239,68,68,0.5)]' 
+                    : 'text-slate-500 hover:text-slate-350'
+                }`}
+              >
+                ไอกัน 👾
+              </button>
             </div>
-            {/* Back: Standard UNO Back */}
-            <div style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }} className="absolute inset-0">
-              <UnoCard card={{ id: 'back-preview', color: 'red' as CardColor, value: '0' }} isBack={true} size="md" theme={cardTheme} />
-            </div>
-          </motion.div>
-
-          <div className="relative z-10 flex-1 ml-2">
-            <label className="arcade-label !text-purple-400 !mb-2 flex items-center gap-2">
-              <span className="text-xl">👑</span> ข้อมูลการ์ดนนท์ดำ
-            </label>
-            <div className="space-y-1.5 mb-3 font-mono text-xs text-slate-300">
-              <div className="flex gap-2 text-rose-300">ความสามารถหลัก: สุ่มเอฟเฟกต์ 1 ใน 3 อย่าง!</div>
-              <div className="flex gap-2 pl-2"><span className="text-purple-500">1.</span> สลับการ์ดในมือกับคู่แข่ง 1 คน</div>
-              <div className="flex gap-2 pl-2"><span className="text-purple-500">2.</span> หมุนเวียนการ์ดในมือของทุกคนรอบวง</div>
-              <div className="flex gap-2 pl-2"><span className="text-purple-500">3.</span> แรปว้ากให้คนถัดไปจั่ว 3 ใบ + ข้ามตา!</div>
-              <div className="flex gap-2 text-cyan-300">★ บังคับเปลี่ยนสีหลักเสมอ (Wild)</div>
-            </div>
-            <p className="text-xs text-purple-400/80 italic leading-relaxed font-mono border-t border-purple-900/50 pt-2.5">
-              "{nontDamQuotes[showcaseQuoteIndex]}"
-            </p>
           </div>
-        </button>
 
+          <div className="flex-1 flex flex-col justify-center relative min-h-[150px]">
+            <AnimatePresence mode="wait">
+              {currentSlide === 0 ? (
+                <motion.button
+                  key="nont-dam"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  transition={{ duration: 0.2 }}
+                  type="button"
+                  onClick={() => { playNontDamSound(); setShowcaseQuoteIndex((prev) => (prev + 1) % 5); }}
+                  className="w-full text-left bg-transparent border-none p-0 flex items-start gap-4 overflow-hidden relative select-none cursor-pointer focus:outline-none"
+                >
+                  {/* Subtle background glow */}
+                  <div className="absolute top-1/2 left-1/4 -translate-y-1/2 w-20 h-20 bg-purple-500/10 blur-2xl rounded-full" />
+                  
+                  <motion.div
+                    animate={{ rotateY: 360 }}
+                    transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
+                    style={{ transformStyle: 'preserve-3d', perspective: '1000px' }}
+                    className="shrink-0 relative z-10 drop-shadow-[0_0_15px_rgba(168,85,247,0.4)] w-24 h-36 md:w-28 md:h-[10.5rem]"
+                  >
+                    {/* Front: Nont-Dam Card */}
+                    <div style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden' }} className="absolute inset-0">
+                      <NontDamCard card={{ id: 'preview-nont', color: 'wild' as CardColor, value: 'nont_dam' }} playable={true} hoverable={false} size="md" />
+                    </div>
+                    {/* Back: Standard UNO Back */}
+                    <div style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }} className="absolute inset-0">
+                      <UnoCard card={{ id: 'back-preview', color: 'red' as CardColor, value: '0' }} isBack={true} size="md" theme={cardTheme} />
+                    </div>
+                  </motion.div>
+
+                  <div className="relative z-10 flex-1 ml-2">
+                    <label className="arcade-label !text-purple-400 !mb-2 flex items-center gap-2">
+                      <span className="text-xl">👑</span> ข้อมูลการ์ดนนท์ดำ
+                    </label>
+                    <div className="space-y-1.5 mb-3 font-mono text-xs text-slate-300">
+                      <div className="flex gap-2 text-rose-350">ความสามารถ: สุ่มเอฟเฟกต์ 1 ใน 3 อย่าง!</div>
+                      <div className="flex gap-2 pl-2"><span className="text-purple-500">1.</span> สลับการ์ดทั้งหมดกับคู่แข่ง 1 คน</div>
+                      <div className="flex gap-2 pl-2"><span className="text-purple-500">2.</span> สลับมือเวียนรอบวงตามทิศทางเกม</div>
+                      <div className="flex gap-2 pl-2"><span className="text-purple-500">3.</span> แรปว้ากให้คู่แข่งถัดไปจั่ว 3 ใบ + ข้ามตา</div>
+                      <div className="flex gap-2 text-cyan-300">★ บังคับเปลี่ยนสีหลักเสมอ (Wild)</div>
+                    </div>
+                    <p className="text-xs text-purple-400/80 italic leading-relaxed font-mono border-t border-purple-900/50 pt-2.5">
+                      "{nontDamQuotes[showcaseQuoteIndex]}"
+                    </p>
+                  </div>
+                </motion.button>
+              ) : (
+                <motion.button
+                  key="ai-gun"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  transition={{ duration: 0.2 }}
+                  type="button"
+                  onClick={() => { playGunScatterSound(); setShowcaseGunQuoteIndex((prev) => (prev + 1) % 5); }}
+                  className="w-full text-left bg-transparent border-none p-0 flex items-start gap-4 overflow-hidden relative select-none cursor-pointer focus:outline-none"
+                >
+                  {/* Subtle background glow */}
+                  <div className="absolute top-1/2 left-1/4 -translate-y-1/2 w-20 h-20 bg-rose-500/10 blur-2xl rounded-full" />
+                  
+                  <motion.div
+                    animate={{ rotateY: 360 }}
+                    transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
+                    style={{ transformStyle: 'preserve-3d', perspective: '1000px' }}
+                    className="shrink-0 relative z-10 drop-shadow-[0_0_15px_rgba(239,68,68,0.4)] w-24 h-36 md:w-28 md:h-[10.5rem]"
+                  >
+                    {/* Front: Gun Card */}
+                    <div style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden' }} className="absolute inset-0">
+                      <GunCard card={{ id: 'preview-gun', color: 'wild' as CardColor, value: 'ai_gun' }} playable={true} hoverable={false} size="md" />
+                    </div>
+                    {/* Back: Standard UNO Back */}
+                    <div style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }} className="absolute inset-0">
+                      <UnoCard card={{ id: 'back-preview-gun', color: 'red' as CardColor, value: '0' }} isBack={true} size="md" theme={cardTheme} />
+                    </div>
+                  </motion.div>
+
+                  <div className="relative z-10 flex-1 ml-2">
+                    <label className="arcade-label !text-rose-400 !mb-2 flex items-center gap-2">
+                      <span className="text-xl">👾</span> ข้อมูลการ์ดไอกัน
+                    </label>
+                    <div className="space-y-1.5 mb-3 font-mono text-xs text-slate-300">
+                      <div className="flex gap-2 text-rose-350">ความสามารถ: ระเบิดไพ่ปลิวกระเจิง!</div>
+                      <div className="flex gap-2 pl-2"><span className="text-red-500">▶</span> ฝั่งผู้เล่นการ์ดลดเหลือปกติ 1 ใบ</div>
+                      <div className="flex gap-2 pl-2"><span className="text-red-500">▶</span> คู่แข่งคนอื่นๆ สุ่มเพิ่ม/ลดไพ่ (-2 ถึง +2 ใบ)</div>
+                      <div className="flex gap-2 text-cyan-300">★ บังคับเปลี่ยนสีหลักเสมอ (Wild)</div>
+                    </div>
+                    <p className="text-xs text-rose-400/80 italic leading-relaxed font-mono border-t border-rose-900/50 pt-2.5">
+                      "{aiGunQuotes[showcaseGunQuoteIndex]}"
+                    </p>
+                  </div>
+                </motion.button>
+              )}
+            </AnimatePresence>
+          </div>
+        </div>
+
+        {/* 3. Rules Manual */}
         <button
           type="button"
           onClick={() => { playCardSound(); setShowHowTo(true); }}
-          className="arcade-panel !p-4 hover:border-amber-500 transition-colors text-left"
+          className="arcade-panel !p-4 hover:border-amber-500 transition-colors text-left flex flex-col justify-between cursor-pointer"
         >
-          <label className="arcade-label !text-amber-400 !mb-2 flex items-center gap-2">
-            <span className="text-lg">📖</span> กติกาการประลอง
-          </label>
-          <div className="space-y-1.5 font-mono text-[9px] text-slate-400 uppercase">
-            <div className="flex gap-2"><span className="text-amber-500">▶</span> วางสีหรือตัวเลขให้ตรงกัน</div>
-            <div className="flex gap-2"><span className="text-amber-500">▶</span> การ์ด Wild ใช้เปลี่ยนสีได้ตลอด</div>
-            <div className="flex gap-2"><span className="text-amber-500">▶</span> เหลือใบสุดท้ายต้องกด อีอ้อ!</div>
-            <div className="flex gap-2"><span className="text-amber-500">▶</span> ไพ่หมดมือคนแรกคือผู้ชนะ</div>
+          <div>
+            <label className="arcade-label !text-amber-400 !mb-4 flex items-center gap-2">
+              <span className="text-lg">📖</span> กติกาการประลองอารีน่า
+            </label>
+            <div className="space-y-2.5 font-mono text-[11px] text-slate-350">
+              <div className="flex gap-2"><span className="text-amber-500">▶</span> วางการ์ดตามสีหรือสัญลักษณ์ให้ตรงกัน</div>
+              <div className="flex gap-2"><span className="text-amber-500">▶</span> การ์ด Wild ใช้แทนได้ทุกสีและสามารถเลือกสีรอบต่อไปได้</div>
+              <div className="flex gap-2"><span className="text-amber-500">▶</span> เมื่อเหลือการ์ดใบสุดท้าย ต้องตะโกน "อีอ้อ!" เพื่อแจ้งเตือนคนอื่น</div>
+              <div className="flex gap-2"><span className="text-amber-500">▶</span> คนแรกที่ระบายการ์ดหมดมือเป็นผู้ชนะรับคะแนนชัย</div>
+            </div>
+          </div>
+          <div className="text-center text-[8px] text-slate-500 mt-4 border-t border-slate-800 pt-2 font-mono uppercase tracking-wider">
+            Click to open full guide manual
           </div>
         </button>
       </div>

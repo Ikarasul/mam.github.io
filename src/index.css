@@ -71,6 +71,15 @@
   animation: flash-purple 0.15s infinite;
 }
 
+@keyframes flash-red {
+  0%, 100% { background-color: rgba(239, 68, 68, 0.15); }
+  50% { background-color: rgba(239, 68, 68, 0.45); }
+}
+
+.animate-flash-red {
+  animation: flash-red 0.1s infinite;
+}
+
 /* --- Responsive Viewport Sizing (Fits gameboard to screen height automatically) --- */
 @media (max-height: 960px) {
   .size-md-card {

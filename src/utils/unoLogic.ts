@@ -63,6 +63,9 @@ export function generateDeck(isFlipMode = false): Card[] {
   for (let i = 0; i < 4; i++) {
     deck.push({ id: nextId(), color: 'wild', value: 'nont_dam' });
   }
+  for (let i = 0; i < 3; i++) {
+    deck.push({ id: nextId(), color: 'wild', value: 'ai_gun' });
+  }
 
   // Add 2 of each new wild card
   const newWilds: CardValue[] = ['swap', 'shield', 'bomb', 'spy', 'target2', 'discard'];
@@ -182,6 +185,7 @@ export function getCardValueThai(value: CardValue): string {
     case 'wild': return 'เปลี่ยนสี (Wild)';
     case 'draw4': return 'เปลี่ยนสี +4 (Wild Draw Four)';
     case 'nont_dam': return '👑 นนท์ดำซูเปอร์ป่วน (Nont-Dam Wild)';
+    case 'ai_gun': return '👾 ไอกันระเบิดมือ (AI-Gun Chaos)';
     case 'flip': return 'สลับฝั่งโลกกระจก (Flip Side Card) 🌀';
     case 'swap': return 'สลับการ์ดทั้งหมด (Wild Swap) ⇄';
     case 'shield': return 'ป้องกันการจั่ว (Wild Shield) 🛡️';

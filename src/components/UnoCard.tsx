@@ -2,6 +2,7 @@ import { Card, CardColor, CardValue } from '../types';
 import { motion } from 'motion/react';
 import React from 'react';
 import { NontDamCard } from './NontDamCard';
+import { GunCard } from './GunCard';
 
 interface UnoCardProps {
   card: Card;
@@ -729,6 +730,23 @@ export const UnoCard: React.FC<UnoCardProps> = ({
     return (
       <div className="group relative">
         <NontDamCard 
+          card={card}
+          playable={playable}
+          onClick={onClick}
+          hoverable={hoverable}
+          size={size}
+          isCurrentPlayMarker={isCurrentPlayMarker}
+        />
+        {renderTooltip()}
+      </div>
+    );
+  }
+
+  // Rare Gun wrapper custom card
+  if (value === 'ai_gun' && !isBack) {
+    return (
+      <div className="group relative">
+        <GunCard 
           card={card}
           playable={playable}
           onClick={onClick}

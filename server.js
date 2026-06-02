@@ -263,6 +263,40 @@ function applyCardEffects(room, card, activePlayer, payload) {
       const result = executeNontDamEffect(room, activePlayer, step);
       logMsg += result.logMsg;
       step = result.nextStep;
+    } else if (targetValue === 'ai_gun') {
+      let detailLog = "";
+      room.players.forEach((p) => {
+        if (p.id !== activePlayer.id) {
+          const oldLen = p.cards.length;
+          const possibleDeltas = [-2, -1, 0, 1, 2];
+          const delta = possibleDeltas[Math.floor(Math.random() * possibleDeltas.length)];
+          const targetLen = Math.max(1, oldLen + delta);
+          
+          if (targetLen > oldLen) {
+            const addedCount = targetLen - oldLen;
+            const extra = [];
+            for (let i = 0; i < addedCount; i++) {
+              const c = drawCardFromServerDeck(room);
+              if (c) extra.push(c);
+            }
+            p.cards = [...p.cards, ...extra];
+          } else if (targetLen < oldLen) {
+            p.cards = p.cards.slice(0, targetLen);
+          } else {
+            // Shuffle
+            p.cards.sort(() => Math.random() - 0.5);
+          }
+          
+          const changeText = targetLen > oldLen 
+            ? `ได้รับเพิ่ม ${targetLen - oldLen} ใบ` 
+            : targetLen < oldLen 
+            ? `สลายลดลง ${oldLen - targetLen} ใบ` 
+            : `สะบัดเก็บใหม่ดวงเท่าเดิม`;
+            
+          detailLog += ` [${p.name}: ${changeText} (${targetLen} ใบ)]`;
+        }
+      });
+      logMsg += ` 👾 ไอกัน (AI-GUN Chaos) ร่างยักษ์ใหญ่พังกำแพงเปิดแร็คเก็ต! ยิงพลังผลักโต๊ะกระเจิงทำไพ่กระจายปลิวว่อน! คู่แข่งต้องเก็บขึ้นมือใหม่แล้วแต่ดวง: ${detailLog} ส่วนทางฝั่งของ ${activePlayer.name} การ์ดลดลงไป 1 ใบตามกฎกติกาสวรรค์! 🍔💨`;
     } else if (targetValue === 'swap') {
       const targetPlayerId = payload.targetPlayerId || (activePlayer.isBot ? getRandomTargetPlayer(room, activePlayer.id) : null);
       const targetPlayer = room.players.find(p => p.id === targetPlayerId);
@@ -414,6 +448,9 @@ function generateServerDeck(isFlipMode = false) {
   }
   for (let i = 0; i < 4; i++) {
     deck.push({ id: nextId(), color: 'wild', value: 'nont_dam' });
+  }
+  for (let i = 0; i < 3; i++) {
+    deck.push({ id: nextId(), color: 'wild', value: 'ai_gun' });
   }
 
   // Add 2 of each new wild card
