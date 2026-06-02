@@ -8,6 +8,8 @@ export interface Card {
   id: string;
   color: CardColor;
   value: CardValue;
+  darkColor?: CardColor;
+  darkValue?: CardValue;
 }
 
 export interface Player {
@@ -16,6 +18,7 @@ export interface Player {
   cards: Card[];
   isBot: boolean;
   avatar: string;
+  cardCount?: number;
 }
 
 export interface GameLog {

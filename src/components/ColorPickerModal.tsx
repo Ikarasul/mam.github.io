@@ -2,16 +2,57 @@ import React from 'react';
 import { CardColor } from '../types';
 import { motion } from 'motion/react';
 import { playCardSound } from '../utils/audio';
+import { UnoCard } from './UnoCard';
 
 interface ColorPickerModalProps {
   isOpen: boolean;
   onSelect: (color: Exclude<CardColor, 'wild'>) => void;
+  flipSide?: 'light' | 'dark';
 }
 
-export const ColorPickerModal: React.FC<ColorPickerModalProps> = ({ isOpen, onSelect }) => {
+export const ColorPickerModal: React.FC<ColorPickerModalProps> = ({ isOpen, onSelect, flipSide = 'light' }) => {
   if (!isOpen) return null;
 
-  const choices: { color: Exclude<CardColor, 'wild'>; label: string; bg: string; border: string; text: string; hover: string; pulse: string }[] = [
+  const isDark = flipSide === 'dark';
+
+  const choices: { color: Exclude<CardColor, 'wild'>; label: string; bg: string; border: string; text: string; hover: string; pulse: string }[] = isDark ? [
+    { 
+      color: 'red', 
+      label: 'สีชมพู (Pink)', 
+      bg: 'bg-[#f43f5e] hover:bg-rose-600', 
+      border: 'border-rose-400',
+      text: 'text-white', 
+      hover: 'shadow-rose-500/50',
+      pulse: 'ring-rose-400'
+    },
+    { 
+      color: 'blue', 
+      label: 'สีเขียวน้ำทะเล (Teal)', 
+      bg: 'bg-[#06b6d4] hover:bg-cyan-600', 
+      border: 'border-cyan-400',
+      text: 'text-white', 
+      hover: 'shadow-cyan-500/50',
+      pulse: 'ring-cyan-400'
+    },
+    { 
+      color: 'green', 
+      label: 'สีม่วง (Purple)', 
+      bg: 'bg-[#a855f7] hover:bg-purple-600', 
+      border: 'border-purple-400',
+      text: 'text-white', 
+      hover: 'shadow-purple-500/50',
+      pulse: 'ring-purple-400'
+    },
+    { 
+      color: 'yellow', 
+      label: 'สีส้ม (Orange)', 
+      bg: 'bg-[#f97316] hover:bg-orange-600', 
+      border: 'border-orange-400',
+      text: 'text-white', 
+      hover: 'shadow-orange-500/50',
+      pulse: 'ring-orange-400'
+    },
+  ] : [
     { 
       color: 'red', 
       label: 'สีแดง (Red)', 
@@ -83,25 +124,27 @@ export const ColorPickerModal: React.FC<ColorPickerModalProps> = ({ isOpen, onSe
           คุณเล่นการ์ดพิเศษ! เลือกสีที่คุณต้องการเปลี่ยนให้เป็นสีถัดไปในการเล่น
         </p>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-6 justify-items-center">
           {choices.map((choice) => (
-            <motion.button
+            <button
               key={choice.color}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
               onClick={() => handleSelect(choice.color)}
-              className={`
-                ${choice.bg} ${choice.text} border-b-4 ${choice.border}
-                flex flex-col items-center justify-center p-5 rounded-2xl
-                font-bold text-base md:text-lg shadow-lg ${choice.hover} hover:shadow-xl
-                transition-all duration-150 cursor-pointer focus:outline-none focus:ring-4 ${choice.pulse}
-              `}
+              className="flex flex-col items-center gap-2.5 focus:outline-none group cursor-pointer"
             >
-              <div className="w-8 h-8 rounded-full bg-white/20 mb-2 border border-white/10 flex items-center justify-center shadow-inner font-extrabold text-sm">
-                A
+              <div className="transition-transform group-hover:scale-105 active:scale-95 duration-200">
+                <UnoCard 
+                  card={{ id: `picker-${choice.color}`, color: choice.color, value: 'A' as any }}
+                  isBack={false}
+                  size="md"
+                  theme="pixel"
+                  flipSide={flipSide}
+                  hoverable={false}
+                />
               </div>
-              {choice.label.split(' ')[0]}
-            </motion.button>
+              <span className="text-xs font-bold text-slate-300 group-hover:text-amber-400 transition-colors font-sans">
+                {choice.label.split(' ')[0]}
+              </span>
+            </button>
           ))}
         </div>
 

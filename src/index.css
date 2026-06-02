@@ -44,3 +44,92 @@
   background: rgba(255, 255, 255, 0.25);
 }
 
+/* Shake animation for chaotic Nont Dam card use */
+@keyframes shake {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  10% { transform: translate(-4px, -2px) rotate(-1deg); }
+  20% { transform: translate(-6px, 0px) rotate(1deg); }
+  30% { transform: translate(0px, 4px) rotate(0deg); }
+  40% { transform: translate(2px, -2px) rotate(1deg); }
+  50% { transform: translate(-2px, 4px) rotate(-1deg); }
+  60% { transform: translate(-6px, 2px) rotate(0deg); }
+  70% { transform: translate(4px, 2px) rotate(-1deg); }
+  80% { transform: translate(-2px, -2px) rotate(1deg); }
+  90% { transform: translate(4px, 4px) rotate(0deg); }
+}
+
+.animate-nont-shake {
+  animation: shake 0.15s infinite;
+}
+
+@keyframes flash-purple {
+  0%, 100% { background-color: rgba(147, 51, 234, 0.1); }
+  50% { background-color: rgba(147, 51, 234, 0.35); }
+}
+
+.animate-flash-purple {
+  animation: flash-purple 0.15s infinite;
+}
+
+/* --- Responsive Viewport Sizing (Fits gameboard to screen height automatically) --- */
+@media (max-height: 960px) {
+  .size-md-card {
+    width: 6.5rem !important;  /* ~104px */
+    height: 9.75rem !important; /* ~156px */
+  }
+  .board-dish {
+    padding-top: 1.5rem !important;
+    padding-bottom: 1.5rem !important;
+    padding-left: 2rem !important;
+    padding-right: 2rem !important;
+    gap: 2rem !important;
+  }
+}
+
+@media (max-height: 840px) {
+  .size-md-card {
+    width: 5.75rem !important;  /* ~92px */
+    height: 8.625rem !important; /* ~138px */
+  }
+  .board-dish {
+    padding-top: 1rem !important;
+    padding-bottom: 1rem !important;
+    padding-left: 1.5rem !important;
+    padding-right: 1.5rem !important;
+    gap: 1.5rem !important;
+    max-width: 440px !important;
+  }
+  .user-hand-panel {
+    min-height: 160px !important;
+    padding: 0.75rem !important;
+  }
+  .middle-row {
+    padding-top: 0.5rem !important;
+    padding-bottom: 0.5rem !important;
+  }
+  .board-dish-wrapper {
+    padding-top: 0.5rem !important;
+    padding-bottom: 0.5rem !important;
+  }
+}
+
+@media (max-height: 720px) {
+  .size-md-card {
+    width: 5rem !important;  /* ~80px */
+    height: 7.5rem !important; /* ~120px */
+  }
+  .board-dish {
+    padding-top: 0.5rem !important;
+    padding-bottom: 0.5rem !important;
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+    gap: 1rem !important;
+    max-width: 380px !important;
+  }
+  .user-hand-panel {
+    min-height: 130px !important;
+    padding: 0.5rem !important;
+  }
+}
+
+

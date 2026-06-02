@@ -1,5 +1,13 @@
 import { Card, CardColor, CardValue } from '../types';
 
+export function getCardColor(card: Card, flipSide: 'light' | 'dark'): CardColor {
+  return (flipSide === 'dark' && card.darkColor) ? card.darkColor : card.color;
+}
+
+export function getCardValue(card: Card, flipSide: 'light' | 'dark'): CardValue {
+  return (flipSide === 'dark' && card.darkValue) ? card.darkValue : card.value;
+}
+
 export function generateDeck(isFlipMode = false): Card[] {
   const colors: Exclude<CardColor, 'wild'>[] = ['red', 'blue', 'green', 'yellow'];
   const values: CardValue[] = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'skip', 'reverse', 'draw2'];
@@ -13,28 +21,73 @@ export function generateDeck(isFlipMode = false): Card[] {
     // Value '0' occurs once per color
     deck.push({ id: nextId(), color, value: '0' });
 
-    // Values '1'-'9', 'skip', 'reverse', 'draw2' occur twice per color
+    // Values '1'-'9' occur twice, but action cards (skip, reverse, draw2) occur 3 times per color
     values.forEach(value => {
       if (value !== '0') {
-        deck.push({ id: nextId(), color, value });
-        deck.push({ id: nextId(), color, value });
+        const isAction = ['skip', 'reverse', 'draw2'].includes(value as string);
+        const repeatCount = isAction ? 3 : 2;
+        for (let i = 0; i < repeatCount; i++) {
+          deck.push({ id: nextId(), color, value });
+        }
       }
     });
 
-    // If flip mode is enabled, add 2 Flip action cards per color
+    // If flip mode is enabled, add 3 Flip action cards per color
     if (isFlipMode) {
-      deck.push({ id: nextId(), color, value: 'flip' });
-      deck.push({ id: nextId(), color, value: 'flip' });
+      for (let i = 0; i < 3; i++) {
+        deck.push({ id: nextId(), color, value: 'flip' });
+      }
     }
   });
 
-  // Add 4 'wild' and 4 'draw4' cards, and 6 special 'nont_dam' cards
-  for (let i = 0; i < 4; i++) {
+  // Add 8 'wild' and 8 'draw4' cards, and 10 special 'nont_dam' cards
+  for (let i = 0; i < 8; i++) {
     deck.push({ id: nextId(), color: 'wild', value: 'wild' });
     deck.push({ id: nextId(), color: 'wild', value: 'draw4' });
   }
-  for (let i = 0; i < 6; i++) {
+  for (let i = 0; i < 10; i++) {
     deck.push({ id: nextId(), color: 'wild', value: 'nont_dam' });
+  }
+
+  if (isFlipMode) {
+    // Group deck cards by type
+    const numbers = deck.filter(c => c.color !== 'wild' && c.value !== 'skip' && c.value !== 'reverse' && c.value !== 'draw2' && c.value !== 'flip');
+    const actions = deck.filter(c => c.value === 'skip' || c.value === 'reverse' || c.value === 'draw2' || c.value === 'flip');
+    const wilds = deck.filter(c => c.color === 'wild');
+
+    // Helper to shuffle a copied list of pairs
+    const shufflePairs = (arr: Card[]) => {
+      const pairs = arr.map(c => ({ color: c.color, value: c.value }));
+      for (let i = pairs.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [pairs[i], pairs[j]] = [pairs[j], pairs[i]];
+      }
+      return pairs;
+    };
+
+    const shuffledNumbers = shufflePairs(numbers);
+    const shuffledActions = shufflePairs(actions);
+    const shuffledWilds = shufflePairs(wilds);
+
+    let numIdx = 0;
+    let actIdx = 0;
+    let wildIdx = 0;
+
+    deck.forEach(card => {
+      if (card.color !== 'wild' && card.value !== 'skip' && card.value !== 'reverse' && card.value !== 'draw2' && card.value !== 'flip') {
+        const pair = shuffledNumbers[numIdx++];
+        card.darkColor = pair.color;
+        card.darkValue = pair.value;
+      } else if (card.value === 'skip' || card.value === 'reverse' || card.value === 'draw2' || card.value === 'flip') {
+        const pair = shuffledActions[actIdx++];
+        card.darkColor = pair.color;
+        card.darkValue = pair.value;
+      } else {
+        const pair = shuffledWilds[wildIdx++];
+        card.darkColor = pair.color;
+        card.darkValue = pair.value;
+      }
+    });
   }
 
   return deck;
@@ -49,19 +102,22 @@ export function shuffleDeck(deck: Card[]): Card[] {
   return shuffled;
 }
 
-export function isValidPlay(card: Card, activeColor: CardColor, activeValue: CardValue): boolean {
+export function isValidPlay(card: Card, activeColor: CardColor, activeValue: CardValue, flipSide: 'light' | 'dark' = 'light'): boolean {
+  const cardColor = getCardColor(card, flipSide);
+  const cardValue = getCardValue(card, flipSide);
+
   // Wild cards can always be played
-  if (card.color === 'wild') {
+  if (cardColor === 'wild') {
     return true;
   }
 
   // Same color
-  if (card.color === activeColor) {
+  if (cardColor === activeColor) {
     return true;
   }
 
   // Same value
-  if (card.value === activeValue) {
+  if (cardValue === activeValue) {
     return true;
   }
 

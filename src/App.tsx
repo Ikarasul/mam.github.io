@@ -5,10 +5,10 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardColor, CardValue, Player, GameLog, GameState } from './types';
-import { generateDeck, shuffleDeck, isValidPlay, getCardColorClass, getCardColorNameThai, getCardValueThai } from './utils/unoLogic';
+import { generateDeck, shuffleDeck, isValidPlay, getCardColorClass, getCardColorNameThai, getCardValueThai, getCardColor, getCardValue } from './utils/unoLogic';
 import { UnoCard } from './components/UnoCard';
 import { ColorPickerModal } from './components/ColorPickerModal';
-import { NontDamCard } from './components/NontDamCard';
+import { NontDamCard, NontDamPixelArt } from './components/NontDamCard';
 import { LobbyScreen } from './components/LobbyScreen';
 import { playCardSound, playDrawSound, playUnoSound, playWinSound, playAlertSound, toggleSound, isSoundEnabled, playNontDamSound } from './utils/audio';
 import { motion, AnimatePresence } from 'motion/react';
@@ -96,6 +96,14 @@ export default function App() {
   const [thinkingBubble, setThinkingBubble] = useState<string | null>(null);
   const [unoButtonGlow, setUnoButtonGlow] = useState<boolean>(false);
   const [hasUserAnnouncedUnoThisTurn, setHasUserAnnouncedUnoThisTurn] = useState<boolean>(false);
+  const [nontDamVisualEffect, setNontDamVisualEffect] = useState<{
+    title: string;
+    description: string;
+    quote: string;
+  } | null>(null);
+  const [swappingAnimation, setSwappingAnimation] = useState<'clockwise' | 'counter-clockwise' | 'giver-to-receiver' | null>(null);
+  const [swapParty, setSwapParty] = useState<{ giver: 'bottom' | 'left' | 'top' | 'right'; receiver: 'bottom' | 'left' | 'top' | 'right' } | null>(null);
+  const [showLogs, setShowLogs] = useState(false);
   
   // Timer for user to declared UNO after down to 1 card
   const [unoDeclareWindow, setUnoDeclareWindow] = useState<{
@@ -122,7 +130,10 @@ export default function App() {
   const [isConnecting, setIsConnecting] = useState<boolean>(false);
 
   const [onlineServerAddr, setOnlineServerAddr] = useState<string>(() => {
-    return localStorage.getItem('mam_card_server_addr') || 'localhost:3001';
+    const saved = localStorage.getItem('mam_card_server_addr');
+    if (saved) return saved;
+    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    return isLocal ? 'localhost:3001' : 'mam-github-io.onrender.com';
   });
 
   const handleSetOnlineServerAddr = (addr: string) => {
@@ -209,6 +220,40 @@ export default function App() {
             break;
           }
           case 'GAME_STATE_UPDATED': {
+            const prevActiveId = gameState.discardPile[0]?.id;
+            const newActiveCard = payload.discardPile[0];
+            const newActiveId = newActiveCard?.id;
+            const cardValue = (payload.flipSide === 'dark' && newActiveCard?.darkValue) 
+              ? newActiveCard.darkValue 
+              : newActiveCard?.value;
+
+            if (newActiveId && newActiveId !== prevActiveId && cardValue === 'nont_dam') {
+              playNontDamSound();
+              const lastLog = payload.logs[payload.logs.length - 1];
+              let title = "🎤 แรปเปอร์นนท์ดำอาละวาด!";
+              let description = lastLog ? lastLog.message : "นนท์ดำใช้การ์ดความสามารถพิเศษป่วนทั้งกระดาน!";
+              let quote = "โย่ว! แรปดุเดือดพ่นทองคำกระแทกหู! อ้ากกกกก! 🎤💥";
+
+              if (lastLog?.message.includes("180 เดซิเบล")) {
+                title = "📢 ไมค์ทองคำว้าก 180 เดซิเบล";
+                quote = "ตูดใหญ่มุมตึก แรปลั่นด่านร้อยแปดสิบเดซิเบลลล! 📢✨";
+              } else if (lastLog?.message.includes("สลับแลก") || lastLog?.message.includes("สับสน")) {
+                title = "🎤 ไซเฟอร์แรปสลับม้วนตลบ";
+                quote = "โย่ว! แรปดุเดือดพ่นทองคำกระแทกหู! อ้ากกกกก! 🎤💥";
+              } else if (lastLog?.message.includes("สร้อยทอง") || lastLog?.message.includes("อวดรวย")) {
+                title = "🪙 สร้อยทองดงบัง Flex!";
+                quote = "นนท์ดำพ่นแรปรัว ตับๆๆๆ หูเคลือบทองแดงไปเล้ย! 🤪🔥";
+              } else if (lastLog?.message.includes("สเต็ป") || lastLog?.message.includes("สายย่อ")) {
+                title = "🕺 สเต็ปย่อส่ายพุงสั่นสะเทือน";
+                quote = "ชักเว่าแย่งวานนนน! แรปเปอร์ระดับตำนานพ่นไฟพลาสม่าล่าสอนเซอร์! 🎤💥";
+              }
+
+              setNontDamVisualEffect({ title, description, quote });
+              setTimeout(() => {
+                setNontDamVisualEffect(null);
+              }, 4200);
+            }
+
             setGameState({
               deck: Array.from({ length: payload.deckCount }, (_, i) => ({ id: `deck-${i}` } as Card)),
               discardPile: payload.discardPile,
@@ -494,7 +539,6 @@ export default function App() {
     return (currentIndex + step * dir + 4) % 4;
   };
 
-  // Play normal/special card handler (for both bots and player)
   const playCard = (cardId: string, authorPlayerId: string, chosenWildColor?: Exclude<CardColor, 'wild'>) => {
     const activePlayer = gameState.players[gameState.currentPlayerIndex];
     if (!activePlayer || activePlayer.id !== authorPlayerId) return; // verification
@@ -503,7 +547,7 @@ export default function App() {
       const cardToPlay = activePlayer.cards.find(c => c.id === cardId);
       if (!cardToPlay) return;
 
-      if (!isValidPlay(cardToPlay, gameState.activeColor, gameState.activeValue)) {
+      if (!isValidPlay(cardToPlay, gameState.activeColor, gameState.activeValue, gameState.flipSide)) {
         playAlertSound();
         return;
       }
@@ -522,16 +566,24 @@ export default function App() {
       return;
     }
 
+    const getPlayerPositionName = (playerId: string): 'bottom' | 'left' | 'top' | 'right' => {
+      if (getPlayerAtPosition('bottom')?.id === playerId) return 'bottom';
+      if (getPlayerAtPosition('left')?.id === playerId) return 'left';
+      if (getPlayerAtPosition('top')?.id === playerId) return 'top';
+      if (getPlayerAtPosition('right')?.id === playerId) return 'right';
+      return 'bottom';
+    };
+
     const cardToPlay = activePlayer.cards.find(c => c.id === cardId);
     if (!cardToPlay) return;
 
     // Perform validation
-    if (!isValidPlay(cardToPlay, gameState.activeColor, gameState.activeValue)) {
+    if (!isValidPlay(cardToPlay, gameState.activeColor, gameState.activeValue, gameState.flipSide)) {
       playAlertSound();
       return;
     }
 
-    if (cardToPlay.value === 'nont_dam') {
+    if (getCardValue(cardToPlay, gameState.flipSide) === 'nont_dam') {
       playNontDamSound();
     } else {
       playCardSound();
@@ -565,15 +617,17 @@ export default function App() {
     const updatedCards = activePlayer.cards.filter(c => c.id !== cardId);
 
     // Modify active colors/values
-    let nextColor = cardToPlay.color;
-    let nextValue = cardToPlay.value;
+    const currentColor = getCardColor(cardToPlay, gameState.flipSide);
+    const currentValue = getCardValue(cardToPlay, gameState.flipSide);
+    let nextColor = currentColor;
+    let nextValue = currentValue;
     let turnDirection = gameState.direction;
-    let logMessage = `${activePlayer.name} วางการ์ด [${getCardColorNameThai(cardToPlay.color)} ${getCardValueThai(cardToPlay.value)}]`;
+    let logMessage = `${activePlayer.name} วางการ์ด [${getCardColorNameThai(currentColor)} ${getCardValueThai(currentValue)}]`;
 
     let step = 1;
 
     // Handle Special actions
-    if (cardToPlay.value === 'reverse') {
+    if (getCardValue(cardToPlay, gameState.flipSide) === 'reverse') {
       turnDirection = (gameState.direction === 1 ? -1 : 1) as 1 | -1;
       logMessage += ` 🔄 ย้อนทิศทางของเกม!`;
     }
@@ -597,106 +651,111 @@ export default function App() {
     };
 
     // Handle special chaotic effects of NONT-DAM card
-    if (cardToPlay.value === 'nont_dam') {
-      const effectIndex = Math.floor(Math.random() * 4);
+    if (getCardValue(cardToPlay, gameState.flipSide) === 'nont_dam') {
+      const effectIndex = Math.floor(Math.random() * 3); // 3 chaotic skill effects
+      let effectTitle = "";
+      let effectDesc = "";
+      let effectQuote = "";
+
       if (effectIndex === 0) {
-        // Reverse direction AND swap 1 random card with neighbors
-        turnDirection = (gameState.direction === 1 ? -1 : 1) as 1 | -1;
+        // Swap all cards in hand with the opponent having fewest cards (or most if active player is lowest)
+        const otherPlayers = afterPlayPlayers.filter(p => p.id !== activePlayer.id);
+        let targetPlayer = otherPlayers[0];
         
-        const hands = afterPlayPlayers.map(p => [...p.cards]);
-        const swappedHands = hands.map(() => [] as Card[]);
+        const activeCardsCount = afterPlayPlayers[gameState.currentPlayerIndex].cards.length;
+        const isMinOverall = otherPlayers.every(p => p.cards.length >= activeCardsCount);
         
-        for (let i = 0; i < 4; i++) {
-          const neighborIndex = (i + turnDirection + 4) % 4;
-          if (hands[i].length > 0) {
-            const randomCardIndex = Math.floor(Math.random() * hands[i].length);
-            const [swappedCard] = hands[i].splice(randomCardIndex, 1);
-            swappedHands[neighborIndex].push(swappedCard);
+        if (isMinOverall) {
+          let maxCards = -1;
+          otherPlayers.forEach(p => {
+            if (p.cards.length > maxCards) {
+              maxCards = p.cards.length;
+              targetPlayer = p;
+            }
+          });
+        } else {
+          let minCards = 999;
+          otherPlayers.forEach(p => {
+            if (p.cards.length < minCards) {
+              minCards = p.cards.length;
+              targetPlayer = p;
+            }
+          });
+        }
+        
+        // Swap hands!
+        const activeCards = [...afterPlayPlayers[gameState.currentPlayerIndex].cards];
+        const targetCards = [...targetPlayer.cards];
+        
+        afterPlayPlayers[gameState.currentPlayerIndex].cards = targetCards;
+        afterPlayPlayers.forEach(p => {
+          if (p.id === targetPlayer.id) {
+            p.cards = activeCards;
           }
-        }
+        });
         
-        for (let i = 0; i < 4; i++) {
-          afterPlayPlayers[i].cards = [...hands[i], ...swappedHands[i]];
-        }
+        logMessage += ` 🎤 นนท์ดำเปิดสกิลแรปร้ายกาจ! สั่งสลับการ์ดทั้งหมดในมือระหว่าง ${activePlayer.name} และ ${targetPlayer.name} สลับขั้วชะตากรรมอารีน่า!`;
+        effectTitle = "🎤 แรปสะกดจิตสลับมือการ์ด";
+        effectDesc = `สลับมือการ์ดทั้งหมดในมือของคุณ (${activePlayer.name}) กับผู้เล่นคู่แข่ง (${targetPlayer.name}) พลิกสถานการณ์ทันที!`;
+        effectQuote = "โย่ว! สลับการ์ดทั้งมือไปเลยพวก! ชะตากรรมเปลี่ยนในพริบตา! 🎤💥";
         
-        logMessage += ` 🎤 นนท์ดำเปิดไซฟอร์แรปวนลูปมั่วซั่วเสียงหลงลั่นวง! ทิศทางทวนคืนสลับกลับด้านทันที และเสียงแรปสุดเพี้ยนทำเอาผู้เล่นทุกคนสับสน คว้าสะบัดการ์ดสุ่มแลกคนละใบสะเทือนอารีน่า!`;
+        const activePos = getPlayerPositionName(activePlayer.id);
+        const targetPos = getPlayerPositionName(targetPlayer.id);
+        setSwapParty({ giver: activePos, receiver: targetPos });
+        setSwappingAnimation('giver-to-receiver');
+        setTimeout(() => {
+          setSwappingAnimation(null);
+          setSwapParty(null);
+        }, 2000);
       } 
       else if (effectIndex === 1) {
-        // Toxic Fart draws 3 for next target and skips them (changed to loud ear-splitting rap)
+        // Rotate all player hands in the current direction of play
+        const hands = afterPlayPlayers.map(p => [...p.cards]);
+        
+        for (let i = 0; i < 4; i++) {
+          const receiverIndex = (i + turnDirection + 4) % 4;
+          afterPlayPlayers[receiverIndex].cards = hands[i];
+        }
+        
+        logMessage += ` 🕺 นนท์ดำแรปเปอร์สายย่อสาดท่าเต้นหมุนพุงสะกดจิต! สลับมือการ์ดของทุกคนส่งเวียนวนต่อกันรอบวงแบทเทิล!`;
+        effectTitle = "🕺 สเต็ปสลับมือเวียนรอบวง";
+        effectDesc = `สลับมือการ์ดทั้งหมดของทุกคนเวียนส่งต่อไปยังเพื่อนข้าง ๆ ตามทิศทางทวน/ตามเข็มนาฬิกา!`;
+        effectQuote = "ชักเว่าแย่งวานนนน! การ์ดบินสลับปลิวไปทั่วทั้งห้องแบทเทิล! 🎤💥";
+        
+        setSwappingAnimation(turnDirection === 1 ? 'clockwise' : 'counter-clockwise');
+        setTimeout(() => setSwappingAnimation(null), 2000);
+      } 
+      else {
+        // Toxic scream draws 3 for next player and skips their turn
         const victimIndex = getNextPlayerIndex(gameState.currentPlayerIndex, turnDirection);
         const nextTargetPlayer = afterPlayPlayers[victimIndex];
         
         const drawnCards = popCardsFromLocalDeck(3);
         afterPlayPlayers[victimIndex].cards = [...nextTargetPlayer.cards, ...drawnCards];
         
-        logMessage += ` 📢 นนท์ดำกระชากไมค์ขวิด ปล่อยแรปว้ากเสียงแหลมสูงปรี๊ด 180 เดซิเบลใส่หน้า! ${nextTargetPlayer.name} หูอื้ออึึงประสาทเสีย หยิบการ์ดทำที่อุดหูฉุกเฉิน 3 ใบ และข้ามตาไปกุมขมับทันที!`;
+        logMessage += ` 📢 นนท์ดำกระชากไมค์แรปว้ากเสียงแหลมสูงปรี๊ด 180 เดซิเบลใส่หน้า! ${nextTargetPlayer.name} หูอื้ออึึงจับจั่วการ์ดทำที่อุดหู 3 ใบและโดนข้ามตาไปทันที!`;
         step = 2;
         playDrawSound();
-      } 
-      else if (effectIndex === 2) {
-        // Gravity belly draws cards from max card holder and transfers to active player / min card holder
-        let maxCardsCount = -1;
-        let maxPlayerIndex = 0;
-        let minCardsCount = 999;
-        let minPlayerIndex = 0;
-        
-        afterPlayPlayers.forEach((p, idx) => {
-          if (p.cards.length > maxCardsCount) {
-            maxCardsCount = p.cards.length;
-            maxPlayerIndex = idx;
-          }
-          if (p.cards.length < minCardsCount) {
-            minCardsCount = p.cards.length;
-            minPlayerIndex = idx;
-          }
-        });
-        
-        if (maxPlayerIndex !== minPlayerIndex && maxCardsCount >= 2) {
-          const giver = afterPlayPlayers[maxPlayerIndex];
-          const receiver = afterPlayPlayers[minPlayerIndex];
-          
-          const cardsToTransfer = giver.cards.slice(0, 2);
-          giver.cards = giver.cards.slice(2);
-          receiver.cards = [...receiver.cards, ...cardsToTransfer];
-          
-          logMessage += ` 🪙 นนท์ดำแรปอวดรวย ถอดสร้อยทองดงบังปลอมฟาดโชว์เหนือ! แย่งสปอนเซอร์การ์ด 2 ใบจากคุณกุมการ์ดเยอะสุด (${giver.name}) ไปปลอบใจดรอปให้ผู้เล่นที่น้อยเนื้อต่ำใจสุด (${receiver.name}) เพื่อความเท่าเทียมในระบอบฮิปฮอป!`;
-        } else {
-          afterPlayPlayers.forEach((p, idx) => {
-            if (idx !== gameState.currentPlayerIndex) {
-              const drawnCards = popCardsFromLocalDeck(1);
-              p.cards = [...p.cards, ...drawnCards];
-            }
-          });
-          logMessage += ` 🔥 นนท์ดำท้าแรปแบทเทิลปากเสียรอบทิศ! ทุกคนทนความหนวกหูไม่ไหว โดนบังคับจับการ์ดปลอบใจคนละ 1 ใบ ยกเว้นคนแรปว้ากปวดตับ!`;
-        }
-      } 
-      else {
-        // Taunt dance pass 1 card right
-        const hands = afterPlayPlayers.map(p => [...p.cards]);
-        const swappedHands = hands.map(() => [] as Card[]);
-        
-        for (let i = 0; i < 4; i++) {
-          const neighborIndex = (i + 1) % 4;
-          if (hands[i].length > 0) {
-            const randomCardIndex = Math.floor(Math.random() * hands[i].length);
-            const [swappedCard] = hands[i].splice(randomCardIndex, 1);
-            swappedHands[neighborIndex].push(swappedCard);
-          }
-        }
-        
-        for (let i = 0; i < 4; i++) {
-          afterPlayPlayers[i].cards = [...hands[i], ...swappedHands[i]];
-        }
-        
-        logMessage += ` 🕺 นนท์ดำสาดสเต็ปแรปเปอร์สายย่อส่ายพุงกระเทือนระคายสายตา! ผู้เล่นทนความรำคาญไม่ไหว รีบปัดหน้าการ์ดส้วมๆ สุ่มวนสลับเวียนเทียนไปทางขวาคนละ 1 ใบระบายความร้อนใจ!`;
+        effectTitle = "📢 ไมค์ทองคำว้าก 180 เดซิเบล";
+        effectDesc = `${nextTargetPlayer.name} โดนแรปว้ากใส่หน้าแสบหูประสาทเสีย บังคับจั่วการ์ด 3 ใบและโดนข้ามตาทันที!`;
+        effectQuote = "ตูดใหญุมุมตึก แรปลั่นด่านร้อยแปดสิบเดซิเบลลล! 📢✨";
       }
+
+      setNontDamVisualEffect({
+        title: effectTitle,
+        description: effectDesc,
+        quote: effectQuote
+      });
+      setTimeout(() => {
+        setNontDamVisualEffect(null);
+      }, 4200);
     }
 
     const finishNormalTurn = (specifiedColor: CardColor) => {
       let nextIndex = gameState.currentPlayerIndex;
 
       // Handle card actions that affect the NEXT player or game environment!
-      if (cardToPlay.value === 'skip') {
+      if (getCardValue(cardToPlay, gameState.flipSide) === 'skip') {
         if (gameState.flipSide === 'dark') {
           logMessage += ` 🚫 [ข้ามแม่งทุกคน] มิติกระจกทำงาน! ข้ามตาผู้เล่นคนอื่นทั้งหมดจนสิทธิ์กลับมาที่ ${afterPlayPlayers[gameState.currentPlayerIndex].name} ได้เล่นต่ออีกตาเฉยเลย! ⚡`;
           step = 4; // Moves 4 steps, which returns to same player in a 4-player game
@@ -706,7 +765,7 @@ export default function App() {
           step = 2; // Jump 2 spaces
         }
       } 
-      else if (cardToPlay.value === 'draw2') {
+      else if (getCardValue(cardToPlay, gameState.flipSide) === 'draw2') {
         const victimIndex = getNextPlayerIndex(gameState.currentPlayerIndex, turnDirection);
         const nextTargetPlayer = afterPlayPlayers[victimIndex];
         const penaltyCount = gameState.flipSide === 'dark' ? 5 : 2;
@@ -719,7 +778,7 @@ export default function App() {
         step = 2; // Jump 2 spaces
         playDrawSound();
       }
-      else if (cardToPlay.value === 'draw4') {
+      else if (getCardValue(cardToPlay, gameState.flipSide) === 'draw4') {
         const victimIndex = getNextPlayerIndex(gameState.currentPlayerIndex, turnDirection);
         const nextTargetPlayer = afterPlayPlayers[victimIndex];
         const penaltyCount = gameState.flipSide === 'dark' ? 6 : 4;
@@ -732,7 +791,7 @@ export default function App() {
         step = 2; // Jump 2 spaces
         playDrawSound();
       }
-      else if (cardToPlay.value === 'flip') {
+      else if (getCardValue(cardToPlay, gameState.flipSide) === 'flip') {
         const nextSide = gameState.flipSide === 'light' ? 'dark' : 'light';
         logMessage += nextSide === 'dark'
           ? ` 🌀 ประตูมิติโลกกระจกเปิดออก! พลิกกระดานเข้าสู่ [มิติความมืดเรืองแสงนีออน]! การ์ดทุกใบได้อัปเกรดพลังบวกทวีคูณขั้นสยอง! 🌌👾`
@@ -769,17 +828,25 @@ export default function App() {
           finalDeck = [...finalDeck, ...freshDeck];
         }
 
-        const nextFlipSide = cardToPlay.value === 'flip' 
+        const nextFlipSide = getCardValue(cardToPlay, prev.flipSide) === 'flip' 
           ? (prev.flipSide === 'light' ? 'dark' : 'light') 
           : prev.flipSide;
+
+        const resolvedActiveColor = getCardValue(cardToPlay, prev.flipSide) === 'flip'
+          ? getCardColor(cardToPlay, nextFlipSide)
+          : specifiedColor;
+
+        const resolvedActiveValue = getCardValue(cardToPlay, prev.flipSide) === 'flip'
+          ? getCardValue(cardToPlay, nextFlipSide)
+          : nextValue;
 
         return {
           ...prev,
           deck: finalDeck,
           players: afterPlayPlayers,
           discardPile: [cardToPlay, ...prev.discardPile],
-          activeColor: specifiedColor,
-          activeValue: nextValue,
+          activeColor: resolvedActiveColor,
+          activeValue: resolvedActiveValue,
           direction: turnDirection,
           currentPlayerIndex: nextIndex,
           wildColorSelectionCard: null,
@@ -792,7 +859,12 @@ export default function App() {
     };
 
     // If played a wild or draw4, human must open picker, AI resolves instantly
-    if (cardToPlay.color === 'wild') {
+    if (getCardValue(cardToPlay, gameState.flipSide) === 'nont_dam') {
+      const colors: Exclude<CardColor, 'wild'>[] = ['red', 'blue', 'green', 'yellow'];
+      const chosenColor = colors[Math.floor(Math.random() * colors.length)];
+      logMessage += ` 🎨 สุ่มเปลี่ยนสีหลักรอบถัดไปเป็น [${getCardColorNameThai(chosenColor)}]`;
+      finishNormalTurn(chosenColor);
+    } else if (cardToPlay.color === 'wild') {
       if (isHuman) {
         // Open modal
         setGameState(prev => ({
@@ -937,7 +1009,7 @@ export default function App() {
       return p;
     });
 
-    const isPlayable = isValidPlay(drawnCard, gameState.activeColor, gameState.activeValue);
+    const isPlayable = isValidPlay(drawnCard, gameState.activeColor, gameState.activeValue, gameState.flipSide);
     
     if (isPlayable) {
       addLog(`📥 ${activePlayer.name} จั่วได้การ์ด [${getCardColorNameThai(drawnCard.color)} ${getCardValueThai(drawnCard.value)}] และลงต่อได้ทันที!`, 'draw');
@@ -959,7 +1031,7 @@ export default function App() {
   // Bot intelligence logic execution
   const executeBotTurn = (bot: Player) => {
     // 1. Separate cards into playable and unplayable
-    const playableCards = bot.cards.filter(c => isValidPlay(c, gameState.activeColor, gameState.activeValue));
+    const playableCards = bot.cards.filter(c => isValidPlay(c, gameState.activeColor, gameState.activeValue, gameState.flipSide));
 
     if (playableCards.length > 0) {
       // Strategize playing: Prioritize Action cards first if another bot has few cards, or prioritize color matches
@@ -967,9 +1039,9 @@ export default function App() {
       let selectedCard = playableCards[0];
 
       // Find an action card of regular colors
-      const coloredActions = playableCards.filter(c => c.color !== 'wild' && ['skip', 'reverse', 'draw2'].includes(c.value));
-      const numbers = playableCards.filter(c => c.color !== 'wild' && !['skip', 'reverse', 'draw2'].includes(c.value));
-      const wilds = playableCards.filter(c => c.color === 'wild');
+      const coloredActions = playableCards.filter(c => getCardColor(c, gameState.flipSide) !== 'wild' && ['skip', 'reverse', 'draw2'].includes(getCardValue(c, gameState.flipSide)));
+      const numbers = playableCards.filter(c => getCardColor(c, gameState.flipSide) !== 'wild' && !['skip', 'reverse', 'draw2'].includes(getCardValue(c, gameState.flipSide)));
+      const wilds = playableCards.filter(c => getCardColor(c, gameState.flipSide) === 'wild');
 
       if (coloredActions.length > 0) {
         // play the action card to mess with competitor!
@@ -992,7 +1064,7 @@ export default function App() {
       }
 
       const updatedBotCards = [...bot.cards, drawnCard];
-      const isPlayable = isValidPlay(drawnCard, gameState.activeColor, gameState.activeValue);
+      const isPlayable = isValidPlay(drawnCard, gameState.activeColor, gameState.activeValue, gameState.flipSide);
 
       const modifiedPlayers = gameState.players.map(p => {
         if (p.id === bot.id) {
@@ -1062,7 +1134,9 @@ export default function App() {
 
     const updatedCards = activePlayer.cards.filter(c => c.id !== cardPlayed.id);
     let turnDirection = gameState.direction;
-    let logMessage = `${activePlayer.name} เล่นการ์ด [${getCardColorNameThai(cardPlayed.color)} ${getCardValueThai(cardPlayed.value)}] 🎨 เลือกระบุสีถัดไปเป็น [${getCardColorNameThai(selectedColor)}]`;
+    const currentColor = getCardColor(cardPlayed, gameState.flipSide);
+    const currentValue = getCardValue(cardPlayed, gameState.flipSide);
+    let logMessage = `${activePlayer.name} เล่นการ์ด [${getCardColorNameThai(currentColor)} ${getCardValueThai(currentValue)}] 🎨 เลือกระบุสีถัดไปเป็น [${getCardColorNameThai(selectedColor)}]`;
 
     const afterPlayPlayers = gameState.players.map(p => {
       if (p.id === activePlayer.id) {
@@ -1074,7 +1148,7 @@ export default function App() {
     const currentDeck = [...gameState.deck];
     let step = 1;
 
-    if (cardPlayed.value === 'draw4') {
+    if (getCardValue(cardPlayed, gameState.flipSide) === 'draw4') {
       const victimIndex = getNextPlayerIndex(gameState.currentPlayerIndex, turnDirection);
       const nextTargetPlayer = afterPlayPlayers[victimIndex];
       
@@ -1117,7 +1191,7 @@ export default function App() {
       players: afterPlayPlayers,
       discardPile: [cardPlayed, ...prev.discardPile],
       activeColor: selectedColor,
-      activeValue: cardPlayed.value,
+      activeValue: getCardValue(cardPlayed, gameState.flipSide),
       currentPlayerIndex: nextIndex,
       wildColorSelectionCard: null
     }));
@@ -1175,7 +1249,82 @@ export default function App() {
   const getPlayableCardCount = () => {
     const displayedP = getDisplayedPlayer();
     const userHand = displayedP?.cards || [];
-    return userHand.filter(c => isValidPlay(c, gameState.activeColor, gameState.activeValue)).length;
+    return userHand.filter(c => isValidPlay(c, gameState.activeColor, gameState.activeValue, gameState.flipSide)).length;
+  };
+
+  const renderMiniCard = (key: string, index: number, total: number, position: 'top' | 'left' | 'right', actualCard?: { id: string; color: string; value: string }) => {
+    const center = (total - 1) / 2;
+    const offset = index - center;
+    const fanSpread = 6; // degrees between each card in the fan
+
+    let transformStr = '';
+
+    if (position === 'top') {
+      // Top player: base 0deg (bottoms point down), fan spreads left-right
+      const angle = offset * fanSpread;
+      const transX = offset * 8;
+      const transY = Math.abs(offset) * 1.5;
+      transformStr = `translateX(${transX}px) translateY(${transY}px) rotateZ(${angle}deg)`;
+    } else if (position === 'left') {
+      // Left player: base 45deg — bottoms point lower-right ↘
+      const angle = 45 + offset * fanSpread;
+      const spreadAlong = offset * 8;
+      transformStr = `rotateZ(${angle}deg) translateX(${spreadAlong}px) translateY(-12px)`;
+    } else if (position === 'right') {
+      // Right player: base -45deg — bottoms point lower-left ↙
+      const angle = -45 + offset * fanSpread;
+      const spreadAlong = offset * 8;
+      transformStr = `rotateZ(${angle}deg) translateX(${spreadAlong}px) translateY(-12px)`;
+    }
+
+
+    // In flip mode (any side): show actual card face when real data exists
+    // Normal mode: always show card back
+    const isFlipMode = gameState.flipModeEnabled;
+    const hasRealCard = actualCard && !actualCard.id.startsWith('dummy');
+    const showFaceUp = isFlipMode && hasRealCard;
+
+    const displayCard = showFaceUp
+      ? { id: actualCard!.id, color: actualCard!.color as any, value: actualCard!.value as any }
+      : { id: `fake-${key}`, color: 'red' as any, value: '0' as any };
+    const showBack = !showFaceUp;
+
+    // Bigger cards in flip mode so values are readable
+    const cardScale = position === 'top'
+      ? (isFlipMode ? 1.0 : 0.85)
+      : (isFlipMode ? 0.82 : 0.65);
+    const cardSize: 'sm' | 'md' | 'lg' = position === 'top' ? 'sm' : 'sm';
+
+    return (
+      <div 
+        key={key}
+        className="absolute transition-all duration-300 origin-bottom"
+        style={{
+          transform: `${transformStr} scale(${cardScale})`,
+          zIndex: index,
+        }}
+      >
+        <motion.div
+          layoutId={actualCard && !actualCard.id.startsWith('dummy') ? `card-${actualCard.id}` : undefined}
+          initial={
+            position === 'top' ? { y: 250, scale: 0.2, opacity: 0 } :
+            position === 'left' ? { x: 250, scale: 0.2, opacity: 0 } :
+            { x: -250, scale: 0.2, opacity: 0 }
+          }
+          animate={{ x: 0, y: 0, scale: 1, opacity: 1 }}
+          transition={{ type: 'spring', damping: 22, stiffness: 150 }}
+        >
+          <UnoCard 
+            card={displayCard}
+            isBack={showBack} 
+            size={cardSize} 
+            theme={cardTheme} 
+            flipSide={isFlipMode ? (gameState.flipSide === 'light' ? 'dark' : 'light') : gameState.flipSide}
+            hoverable={false} 
+          />
+        </motion.div>
+      </div>
+    );
   };
 
   return (
@@ -1195,6 +1344,23 @@ export default function App() {
         </div>
 
         <div className="flex items-center gap-2">
+          {gameState.status === 'playing' && (
+            <>
+              <button
+                onClick={handleResetOrReplay}
+                className="py-1.5 px-3 rounded-xl bg-slate-900 border border-white/5 hover:bg-slate-800 text-stone-300 hover:text-white font-bold text-xs flex items-center gap-1 transition-colors cursor-pointer"
+              >
+                <RotateCcw size={12} /> รีเซ็ต
+              </button>
+              <button
+                onClick={handleResignOrQuit}
+                className="py-1.5 px-3 rounded-xl bg-red-950/20 border border-red-900/30 hover:bg-red-900/20 text-red-400 hover:text-red-300 font-bold text-xs flex items-center gap-1 transition-colors cursor-pointer"
+              >
+                <AlertTriangle size={12} /> ยอมแพ้
+              </button>
+            </>
+          )}
+
           <button
             onClick={handleToggleSound}
             className="p-2.5 bg-slate-900 border border-white/5 rounded-xl hover:bg-slate-800 text-slate-300 hover:text-white transition-all cursor-pointer shadow-md"
@@ -1214,7 +1380,7 @@ export default function App() {
       </header>
 
       {/* Main Container */}
-      <main className="max-w-7xl mx-auto p-4 flex flex-col items-center justify-center min-h-[calc(100vh-80px)] relative z-10">
+      <main className={`w-full max-w-[98vw] mx-auto p-3 flex flex-col items-center justify-center relative z-10 ${gameState.status === 'playing' ? 'h-[calc(100vh-75px)] max-h-[calc(100vh-75px)] overflow-hidden' : 'min-h-[calc(100vh-80px)]'}`}>
         
         {/* LANDING / SETUP SCREEN */}
         {gameState.status === 'setup' && (
@@ -1255,14 +1421,93 @@ export default function App() {
         )}
         {/* ACTIVE GAMEBOARD */}
         {gameState.status === 'playing' && (
-          <div className="w-full grid grid-cols-1 lg:grid-cols-4 gap-6 items-stretch">
+          <div className="w-full h-full max-h-full flex flex-col items-center overflow-hidden">
             
-            {/* THE BIG GAME TABLE (3 columns wide on large screen) */}
-            <div className={`lg:col-span-3 flex flex-col justify-between items-center relative rounded-4xl p-8 min-h-[75vh] border-[12px] transition-all duration-1000 overflow-hidden ${
+            {/* THE BIG GAME TABLE */}
+            <div className={`w-full max-w-full flex-1 flex flex-col justify-between items-center relative rounded-3xl p-3 sm:p-5 border transition-all duration-1000 overflow-hidden ${
+              nontDamVisualEffect ? 'animate-nont-shake animate-flash-purple' : ''
+            } ${
               gameState.flipSide === 'dark' 
-                ? 'border-[#0f001c] bg-radial from-[#150226] via-[#090012] to-[#010006] shadow-[0_25px_60px_-15px_rgba(168,85,247,0.2),inset_0_0_120px_rgba(0,0,0,0.95)]'
-                : 'border-[#3f1b04] bg-radial from-[#2a6f53] via-[#1d4d3a] to-[#123024] shadow-[0_25px_60px_-15px_rgba(0,0,0,0.9),inset_0_0_80px_rgba(0,0,0,0.6)]'
+                ? 'border-purple-950/40 bg-radial from-[#150226] via-[#090012] to-[#010006] shadow-[0_25px_60px_-15px_rgba(168,85,247,0.25),inset_0_0_120px_rgba(0,0,0,0.95)]'
+                : 'border-emerald-950/40 bg-radial from-[#2a6f53] via-[#1d4d3a] to-[#123024] shadow-[0_25px_60px_-15px_rgba(0,0,0,0.9),inset_0_0_80px_rgba(0,0,0,0.6)]'
             }`}>
+              
+              {/* Floating Game Status Widget in Top Right */}
+              <div className="absolute top-4 right-4 z-20 bg-slate-950/80 backdrop-blur-md border border-white/10 rounded-2xl p-2.5 flex items-center gap-3 shadow-lg select-none">
+                <div className="relative">
+                  <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-sm border border-yellow-400 shadow">
+                    {gameState.players[gameState.currentPlayerIndex]?.avatar || '👤'}
+                  </div>
+                  {isAiThinking && (
+                    <span className="absolute -bottom-1 -right-1 w-2.5 h-2.5 rounded-full bg-amber-400 border border-slate-950 flex items-center justify-center animate-ping text-[6px]">
+                      ●
+                    </span>
+                  )}
+                </div>
+                
+                <div className="text-left leading-tight">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[8px] text-amber-400 uppercase tracking-widest font-mono font-bold">
+                      ตาที่ {gameState.logs.filter(l => l.type === 'play').length + 1}
+                    </span>
+                    <span className="text-[8px] text-stone-400 font-mono flex items-center gap-0.5">
+                      {gameState.direction === 1 ? <TrendingUp size={8} /> : <TrendingDown size={8} />}
+                      {gameState.direction === 1 ? "ตามเข็ม" : "ทวนเข็ม"}
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-black text-white block max-w-[80px] truncate">
+                    {gameState.players[gameState.currentPlayerIndex]?.name || 'กำลังรอ...'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Floating Collapsible Logs Widget in Top Left */}
+              <div className="absolute top-4 left-4 z-20 flex flex-col items-start pointer-events-auto">
+                <button
+                  onClick={() => setShowLogs(!showLogs)}
+                  className="py-1.5 px-2.5 rounded-xl bg-slate-950/80 backdrop-blur-md border border-white/10 text-stone-300 hover:text-white font-bold text-[10px] flex items-center gap-1 transition-colors cursor-pointer shadow-md select-none"
+                >
+                  <History size={11} className="text-cyan-400" />
+                  Match Log {gameState.logs.length > 0 && `(${gameState.logs.length})`}
+                </button>
+
+                <AnimatePresence>
+                  {showLogs && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      className="mt-2 w-[260px] max-h-[220px] overflow-y-auto bg-slate-950/90 border border-white/10 rounded-2xl p-2.5 shadow-xl scrollbar-thin space-y-1.5"
+                    >
+                      {gameState.logs.length === 0 ? (
+                        <div className="text-center text-[10px] text-stone-600 py-4">
+                          ยังไม่มีความเคลื่อนไหว
+                        </div>
+                      ) : (
+                        gameState.logs.slice().reverse().map((log) => {
+                          let badgeBg = 'bg-stone-850 text-stone-400';
+                          if (log.type === 'play') badgeBg = 'bg-blue-500/10 text-blue-400';
+                          if (log.type === 'draw') badgeBg = 'bg-yellow-500/10 text-yellow-400';
+                          if (log.type === 'uno') badgeBg = 'bg-red-500/10 text-red-500 animate-pulse';
+                          if (log.type === 'win') badgeBg = 'bg-green-500/10 text-green-400';
+
+                          return (
+                            <div key={log.id} className="text-[10px] bg-white/5 p-1.5 rounded-lg border border-white/5 space-y-0.5">
+                              <div className="flex items-center justify-between">
+                                <span className={`text-[7px] font-bold px-1 rounded-sm ${badgeBg} uppercase font-mono`}>
+                                  {log.type}
+                                </span>
+                                <span className="text-[7px] text-stone-500 font-mono">{log.timestamp}</span>
+                              </div>
+                              <p className="text-stone-300 font-medium leading-tight">{log.message}</p>
+                            </div>
+                          );
+                        })
+                      )}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
               
               {/* ROTATING DIRECTION INDICATOR & VELVET GLOW */}
               <div className="absolute inset-0 rounded-3xl overflow-hidden pointer-events-none flex items-center justify-center">
@@ -1283,7 +1528,7 @@ export default function App() {
                 const topCards = topPlayer ? getPlayerCards(topPlayer) : [];
                 const topActive = topPlayer && gameState.players[gameState.currentPlayerIndex]?.id === topPlayer.id;
                 return (
-                  <div className="z-10 text-center">
+                  <div className="z-10 text-center flex flex-col items-center">
                     {topPlayer && (
                       <PlayerPanel 
                         player={topPlayer} 
@@ -1293,23 +1538,15 @@ export default function App() {
                         isWinner={false}
                       />
                     )}
-                    
-                    {/* Small compact layout for Top Player's hand */}
-                    <div className="flex gap-1 justify-center mt-3">
-                      {topCards.map((c, i) => (
-                        <div 
-                          key={c.id} 
-                          className="w-[22px] h-9 bg-red-700 border border-red-600/50 rounded flex items-center justify-center text-[9px] font-black italic text-white shadow-lg transform origin-bottom"
-                          style={{ 
-                            transform: `rotate(${(i - (topCards.length - 1)/2) * 4}deg) translateY(${Math.abs(i - (topCards.length - 1)/2) * 1}px)`,
-                            zIndex: i 
-                          }}
-                        >
-                          U
-                        </div>
-                      ))}
+                    {/* Top Player hand — fan pointing downward */}
+                    <div 
+                      className="relative h-24 w-64 mt-1 flex items-end justify-center overflow-visible"
+                    >
+                      {topCards.map((c, i) => 
+                        renderMiniCard(`top-${c.id}`, i, topCards.length, 'top', c)
+                      )}
                       {topPlayer && topCards.length === 0 && (
-                        <span className="text-slate-500 text-xs">ไม่มีการ์ด</span>
+                        <span className="text-slate-500 text-xs absolute">ไม่มีการ์ด</span>
                       )}
                     </div>
                   </div>
@@ -1317,51 +1554,48 @@ export default function App() {
               })()}
 
               {/* MIDDLE ROW: BOTS 1 & 3 & DRAW/DISCARD AREA */}
-              <div className="w-full flex items-center justify-between gap-4 my-auto z-10 py-6">
+              <div className="w-full flex items-center justify-between gap-4 my-auto z-10 py-6 middle-row">
                 
-                {/* LEFT PLAYER */}
+                {/* LEFT PLAYER — avatar top-left, fan spreading inward ↘ */}
                 {(() => {
                   const leftPlayer = getPlayerAtPosition('left');
                   const leftCards = leftPlayer ? getPlayerCards(leftPlayer) : [];
                   const leftActive = leftPlayer && gameState.players[gameState.currentPlayerIndex]?.id === leftPlayer.id;
                   return (
-                    <div className="w-32 flex flex-col items-center text-center">
+                    <div className="relative flex flex-col items-start" style={{ width: '130px', minHeight: '180px' }}>
+                      {/* Avatar pinned to top-left */}
                       {leftPlayer && (
                         <PlayerPanel 
-                          player={leftPlayer} 
-                          isActive={!!leftActive} 
-                          isThinking={isAiThinking && !!leftActive}
-                          bubbleText={thinkingBubble}
-                          isWinner={false}
-                        />
+                            player={leftPlayer} 
+                            isActive={!!leftActive} 
+                            isThinking={isAiThinking && !!leftActive}
+                            bubbleText={thinkingBubble}
+                            isWinner={false}
+                          />
                       )}
-
-                      {/* Fan of cards vertical / compact */}
-                      <div className="relative h-16 w-16 mt-3 flex items-center justify-center">
-                        {leftCards.map((c, i) => (
-                          <div 
-                            key={c.id}
-                            className="absolute w-[22px] h-9 bg-red-700 border border-red-600/50 rounded flex items-center justify-center text-[8px] font-black italic text-white shadow-md origin-bottom"
-                            style={{ 
-                              transform: `rotate(${(i - (leftCards.length - 1)/2) * 14}deg) translateX(${(i - (leftCards.length - 1)/2) * 3}px)`,
-                              zIndex: i 
-                            }}
-                          >
-                            U
-                          </div>
-                        ))}
+                      {/* Card fan — centred in the left column area */}
+                      <div 
+                        className="relative flex-1 w-full mt-2 flex items-center justify-center overflow-visible"
+                        style={{ minHeight: '120px' }}
+                      >
+                        {leftCards.map((c, i) => 
+                          renderMiniCard(`left-${c.id}`, i, leftCards.length, 'left', c)
+                        )}
+                        {leftPlayer && leftCards.length === 0 && (
+                          <span className="text-slate-500 text-xs absolute">ไม่มีการ์ด</span>
+                        )}
                       </div>
                     </div>
                   );
                 })()}
 
                 {/* BOARD CENTER 3D TRAY / DISH (จานแนว 3D สำหรับวางไพ่) */}
-                <div className="flex-1 flex items-center justify-center py-6 my-auto w-full z-10" style={{ perspective: '1200px' }}>
+                <div className="flex-1 flex items-center justify-center py-6 my-auto w-full z-10 board-dish-wrapper" style={{ perspective: '1200px' }}>
                   <div 
-                    className={`relative w-full max-w-[530px] rounded-[50px] border-[6px] transition-all duration-1000 flex flex-col sm:flex-row items-center justify-center gap-8 sm:gap-14 px-8 py-10 ${
+                    className={`relative w-full max-w-[530px] rounded-[50px] border transition-all duration-1000 flex flex-col sm:flex-row items-center justify-center gap-8 sm:gap-14 px-8 py-10 board-dish ${
                       gameState.flipSide === 'dark'
-                        ? 'border-[#7c3aed] bg-gradient-to-b from-[#120024] via-[#21003d] to-[#0a0014]'
-                        : 'border-[#d97706] bg-gradient-to-b from-[#451a03] via-[#78350f] to-[#2d1002]'
+                        ? 'border-purple-500/20 bg-gradient-to-b from-[#120024] via-[#21003d] to-[#0a0014]'
+                        : 'border-amber-500/20 bg-gradient-to-b from-[#451a03] via-[#78350f] to-[#2d1002]'
                     }`}
                     style={{ 
                       transform: 'rotateX(22deg) rotateY(0deg) translateZ(0px)',
@@ -1372,10 +1606,10 @@ export default function App() {
                     }}
                   >
                     {/* Inner felt recess of the 3D disk */}
-                    <div className={`absolute inset-2.5 rounded-[42px] border-2 pointer-events-none transition-all duration-1000 ${
+                    <div className={`absolute inset-2.5 rounded-[42px] border border-white/5 pointer-events-none transition-all duration-1000 ${
                       gameState.flipSide === 'dark' 
-                        ? 'bg-gradient-to-b from-[#0a0114] to-[#120124] border-[#22023d]'
-                        : 'bg-gradient-to-b from-[#0a231c] to-[#123026] border-[#1c0a00]'
+                        ? 'bg-gradient-to-b from-[#0a0114] to-[#120124]'
+                        : 'bg-gradient-to-b from-[#0a231c] to-[#123026]'
                     }`} style={{ boxShadow: 'inset 0 10px 24px rgba(0,0,0,0.9)' }} />
 
                     {/* Elite golden decorative motifs representing traditional luxury card play */}
@@ -1384,35 +1618,127 @@ export default function App() {
                     <span className={`absolute bottom-3 left-8 text-lg select-none font-serif ${gameState.flipSide === 'dark' ? 'text-purple-500/30' : 'text-amber-500/30'}`}>✥</span>
                     <span className={`absolute bottom-3 right-8 text-lg select-none font-serif ${gameState.flipSide === 'dark' ? 'text-purple-500/30' : 'text-amber-500/30'}`}>✥</span>
 
+                    {/* Flying Cards Animation Layer */}
+                    {swappingAnimation && (
+                      <div className="absolute inset-0 z-30 pointer-events-none overflow-visible flex items-center justify-center">
+                        {(() => {
+                          const positions = {
+                            bottom: { x: 0, y: 190, rotate: 0 },
+                            left: { x: -200, y: 0, rotate: 90 },
+                            top: { x: 0, y: -190, rotate: 180 },
+                            right: { x: 200, y: 0, rotate: -90 }
+                          };
+
+                          let paths: Array<{ from: { x: number; y: number; rotate: number }; to: { x: number; y: number; rotate: number }; delay: number }> = [];
+
+                          if (swappingAnimation === 'clockwise') {
+                            paths = [
+                              { from: positions.bottom, to: positions.left, delay: 0 },
+                              { from: positions.left, to: positions.top, delay: 0.15 },
+                              { from: positions.top, to: positions.right, delay: 0.3 },
+                              { from: positions.right, to: positions.bottom, delay: 0.45 }
+                            ];
+                          } else if (swappingAnimation === 'counter-clockwise') {
+                            paths = [
+                              { from: positions.bottom, to: positions.right, delay: 0 },
+                              { from: positions.right, to: positions.top, delay: 0.15 },
+                              { from: positions.top, to: positions.left, delay: 0.3 },
+                              { from: positions.left, to: positions.bottom, delay: 0.45 }
+                            ];
+                          } else if (swappingAnimation === 'giver-to-receiver' && swapParty) {
+                            const fromPos = positions[swapParty.giver] || positions.bottom;
+                            const toPos = positions[swapParty.receiver] || positions.top;
+                            paths = [
+                              { from: fromPos, to: toPos, delay: 0 },
+                              { from: fromPos, to: toPos, delay: 0.25 }
+                            ];
+                          }
+
+                          return paths.map((path, idx) => (
+                            <motion.div
+                              key={`${swappingAnimation}-${idx}`}
+                              initial={{ 
+                                x: path.from.x, 
+                                y: path.from.y, 
+                                rotate: path.from.rotate,
+                                opacity: 0,
+                                scale: 0.6
+                              }}
+                              animate={{ 
+                                x: path.to.x, 
+                                y: path.to.y, 
+                                rotate: path.to.rotate + 360,
+                                opacity: [0, 1, 1, 0],
+                                scale: [0.6, 1, 1, 0.6]
+                              }}
+                              transition={{
+                                duration: 1.1,
+                                delay: path.delay,
+                                ease: "easeInOut"
+                              }}
+                              className="absolute w-12 h-18 bg-[#120b24] border border-purple-500 rounded-lg shadow-[0_0_12px_rgba(168,85,247,0.7)] flex items-center justify-center"
+                              style={{ transformStyle: 'preserve-3d' }}
+                            >
+                              <div className="w-full h-full bg-gradient-to-br from-purple-700 to-indigo-950 flex items-center justify-center p-1 rounded-lg">
+                                <div className="w-full h-full border border-purple-400/20 flex items-center justify-center bg-black/40 rounded-sm">
+                                  <span className="text-[8px] text-yellow-400 font-mono font-bold">★</span>
+                                </div>
+                              </div>
+                            </motion.div>
+                          ));
+                        })()}
+                      </div>
+                    )}
+
                     {/* DRAW PILE */}
-                    <div className="flex flex-col items-center gap-3.5 z-10" style={{ transform: 'translateZ(20px)' }}>
-                      <span className="text-[10px] font-black text-amber-200/90 tracking-wider font-mono uppercase bg-slate-950/70 border border-white/5 px-2 py-0.5 rounded shadow-md">
+                    <div className="flex flex-col items-center gap-5 z-10" style={{ transform: 'translateZ(20px)' }}>
+                      <span className="text-xs font-bold text-amber-200/90 tracking-wide font-sans bg-slate-950/80 border border-white/10 px-3 py-1 rounded-full shadow-md">
                         กองการ์ดจั่ว ({gameState.deck.length})
                       </span>
                       
                       <div className="relative group">
-                        {/* Interactive click to draw card */}
                         <button
                           onClick={handleUserDrawCard}
                           disabled={!isLocalPlayerTurn() || isAiThinking}
                           className={`group relative focus:outline-none transition-all active:scale-95 cursor-pointer block ${isLocalPlayerTurn() && !isAiThinking ? 'hover:scale-105' : ''}`}
                         >
-                          {/* 3D stacked layout under draw card */}
                           <div className="absolute -bottom-1.5 -right-1.5 w-24 h-36 md:w-28 md:h-42 bg-slate-950 border border-slate-800/80 rounded-2xl shadow -z-20 transform translate-x-1.5 translate-y-1.5 opacity-90" />
                           <div className="absolute -bottom-0.5 -right-0.5 w-24 h-36 md:w-28 md:h-42 bg-slate-900 border border-slate-800/90 rounded-2xl shadow -z-10 transform translate-x-0.5 translate-y-0.5" />
                           
-                          <UnoCard 
-                            card={{ id: 'fake-draw', color: 'red', value: '0' }} 
-                            isBack 
-                            hoverable={isLocalPlayerTurn() && !isAiThinking}
-                            playable={isLocalPlayerTurn() && !isAiThinking} 
-                            size="md"
-                            flipSide={gameState.flipSide}
-                            theme={cardTheme}
-                          />
+                          {(() => {
+                             const isFlipMode = gameState.flipModeEnabled;
+                             const nextCard = isFlipMode && gameState.deck.length > 0
+                               ? gameState.deck[gameState.deck.length - 1]
+                               : null;
+                             
+                             if (nextCard) {
+                               return (
+                                 <UnoCard 
+                                   card={nextCard} 
+                                   isBack={false} 
+                                   hoverable={isLocalPlayerTurn() && !isAiThinking}
+                                   playable={isLocalPlayerTurn() && !isAiThinking} 
+                                   size="md"
+                                   flipSide={gameState.flipSide === 'light' ? 'dark' : 'light'}
+                                   theme={cardTheme}
+                                 />
+                               );
+                             }
+                             
+                             return (
+                               <UnoCard 
+                                 card={{ id: 'fake-draw', color: 'red', value: '0' }} 
+                                 isBack 
+                                 hoverable={isLocalPlayerTurn() && !isAiThinking}
+                                 playable={isLocalPlayerTurn() && !isAiThinking} 
+                                 size="md"
+                                 flipSide={gameState.flipSide}
+                                 theme={cardTheme}
+                               />
+                             );
+                           })()}
                         </button>
 
-                        {/* Your Turn guidance overlay */}
                         {isLocalPlayerTurn() && !isAiThinking && (
                           <div className="absolute -top-3.5 -right-3.5 bg-red-600 text-white font-black px-2.5 py-1 text-[9px] tracking-widest rounded-full shadow-lg border border-white/20 animate-bounce">
                             DRAW CARD!
@@ -1422,11 +1748,11 @@ export default function App() {
                     </div>
 
                     {/* DISCARD PILE */}
-                    <div className="flex flex-col items-center gap-3.5 z-10" style={{ transform: 'translateZ(20px)' }}>
-                      <span className="text-[10px] font-black text-amber-200/90 tracking-wider font-mono uppercase bg-slate-950/70 border border-white/5 px-2 py-0.5 rounded shadow-sm justify-center flex items-center gap-1.5">
+                    <div className="flex flex-col items-center gap-5 z-10" style={{ transform: 'translateZ(20px)' }}>
+                      <span className="text-xs font-bold text-amber-200/90 tracking-wide font-sans bg-slate-950/80 border border-white/10 px-3 py-1 rounded-full shadow-md justify-center flex items-center gap-1.5 font-mono">
                         การ์ดบนโต๊ะ 
-                        <span className="flex items-center gap-1 bg-white/10 border border-white/5 px-1.5 py-0.5 rounded-full text-zinc-300 font-bold font-mono text-[9px]">
-                          {gameState.direction === 1 ? <TrendingUp size={9} className="text-emerald-400" /> : <TrendingDown size={9} className="text-yellow-400" />}
+                        <span className="flex items-center gap-1 bg-white/10 border border-white/5 px-2 py-0.5 rounded-full text-zinc-300 font-bold font-sans text-[10px]">
+                          {gameState.direction === 1 ? <TrendingUp size={10} className="text-emerald-400" /> : <TrendingDown size={10} className="text-yellow-400" />}
                           {gameState.direction === 1 ? "ตามเข็ม" : "ทวนเข็ม"}
                         </span>
                       </span>
@@ -1442,24 +1768,33 @@ export default function App() {
                               gameState.activeColor === 'yellow' ? 'shadow-[0_0_35px_rgba(234,179,8,0.55)]' :
                               'shadow-[0_0_35px_rgba(255,255,255,0.25)]'
                             }`}>
-                              <UnoCard 
-                                card={gameState.discardPile[0]} 
-                                hoverable={false} 
-                                isCurrentPlayMarker
-                                size="md"
-                                flipSide={gameState.flipSide}
-                                theme={cardTheme}
-                              />
-                            </div>
-
-                            {/* Highlight Active Match Rules */}
-                            <div className={`absolute -bottom-3 -right-3 rounded-full border border-white/10 bg-gradient-to-br ${getCardColorClass(gameState.activeColor)} text-white text-[9px] uppercase font-black px-2.5 py-1 tracking-widest shadow-xl`}>
-                              {getCardColorNameThai(gameState.activeColor)} : {gameState.activeValue}
+                              <motion.div
+                                key={gameState.discardPile[0]?.id}
+                                layoutId={`card-${gameState.discardPile[0]?.id}`}
+                                transition={{ type: 'spring', damping: 24, stiffness: 140 }}
+                              >
+                                <UnoCard 
+                                  card={gameState.discardPile[0]} 
+                                  size="md"
+                                  flipSide={gameState.flipSide}
+                                  theme={cardTheme}
+                                  playable={false}
+                                  hoverable={false}
+                                  isCurrentPlayMarker
+                                />
+                              </motion.div>
                             </div>
                           </div>
                         ) : (
-                          <div className="w-24 h-36 md:w-28 md:h-42 bg-slate-950 border border-dashed border-slate-800/80 rounded-2xl flex items-center justify-center text-slate-500 text-xs font-mono">
-                            EMPTY PILE
+                          <div className="w-24 h-36 md:w-28 md:h-42 rounded-2xl border border-dashed border-white/10 flex items-center justify-center text-xs text-slate-500">
+                            ไม่มีการ์ด
+                          </div>
+                        )}
+
+                        {/* Show current active color focus indicators next to discard pile if active color differs from current card color */}
+                        {gameState.discardPile.length > 0 && gameState.discardPile[0].color === 'wild' && (
+                          <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 bg-slate-950/80 border border-white/10 px-2 py-0.5 rounded-full text-[9px] font-bold text-yellow-400 flex items-center gap-1 shadow">
+                            สีหลัก: {getCardColorNameThai(gameState.activeColor)}
                           </div>
                         )}
                       </div>
@@ -1468,13 +1803,14 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* RIGHT PLAYER */}
+                {/* RIGHT PLAYER — avatar top-right, fan spreading inward ↙ */}
                 {(() => {
                   const rightPlayer = getPlayerAtPosition('right');
                   const rightCards = rightPlayer ? getPlayerCards(rightPlayer) : [];
                   const rightActive = rightPlayer && gameState.players[gameState.currentPlayerIndex]?.id === rightPlayer.id;
                   return (
-                    <div className="w-32 flex flex-col items-center text-center">
+                    <div className="relative flex flex-col items-end" style={{ width: '130px', minHeight: '180px' }}>
+                      {/* Avatar pinned to top-right */}
                       {rightPlayer && (
                         <PlayerPanel 
                           player={rightPlayer} 
@@ -1484,21 +1820,17 @@ export default function App() {
                           isWinner={false}
                         />
                       )}
-
-                      {/* Fan of cards vertical / compact */}
-                      <div className="relative h-16 w-16 mt-3 flex items-center justify-center">
-                        {rightCards.map((c, i) => (
-                          <div 
-                            key={c.id}
-                            className="absolute w-[22px] h-9 bg-red-700 border border-red-600/50 rounded flex items-center justify-center text-[8px] font-black italic text-white shadow-md origin-bottom"
-                            style={{ 
-                              transform: `rotate(${(i - (rightCards.length - 1)/2) * -14}deg) translateX(${(i - (rightCards.length - 1)/2) * -3}px)`,
-                              zIndex: i 
-                            }}
-                          >
-                            U
-                          </div>
-                        ))}
+                      {/* Card fan — centred in the right column area */}
+                      <div 
+                        className="relative flex-1 w-full mt-2 flex items-center justify-center overflow-visible"
+                        style={{ minHeight: '120px' }}
+                      >
+                        {rightCards.map((c, i) => 
+                          renderMiniCard(`right-${c.id}`, i, rightCards.length, 'right', c)
+                        )}
+                        {rightPlayer && rightCards.length === 0 && (
+                          <span className="text-slate-500 text-xs absolute">ไม่มีการ์ด</span>
+                        )}
                       </div>
                     </div>
                   );
@@ -1522,31 +1854,21 @@ export default function App() {
                           <div>
                             <div className="flex items-center gap-2">
                               <span className="text-[10px] uppercase font-black tracking-widest text-slate-400 font-mono">
-                                {isItsTurn && !isAiThinking ? 'ตาของคุณเล่น' : 'รอบางแรปเปอร์สับเปลี่ยน...'}
+                                การจั่วและการเล่นการ์ดของคุณ
+                              </span>
+                              <span className="text-white font-extrabold text-xs">
+                                👑 คุณชี้โม้โอ้อวด 👑
                               </span>
                             </div>
-                            <h3 className="font-black text-base text-white tracking-tight flex items-center gap-1.5">
-                              <span className="text-xl">{displayedP?.avatar}</span> {displayedP?.name}
-                            </h3>
                           </div>
                         </div>
 
-                        {/* Actions Bar (Declare UNO!) */}
-                        <div className="flex items-center gap-4">
-                          {unoDeclareWindow && displayedP && unoDeclareWindow.playerId === displayedP.id && (
-                            <motion.div 
-                              animate={{ scale: [1, 1.05, 1] }}
-                              transition={{ repeat: Infinity, duration: 0.5 }}
-                              className="bg-red-600 text-white font-black p-1.5 rounded-lg text-[9px] flex items-center gap-1.5 px-3 uppercase tracking-widest animate-pulse shadow-lg shadow-red-600/30 border border-white/10"
-                            >
-                              <AlertTriangle size={12} /> กด "อีอ้อ!" ด่วน!
-                            </motion.div>
-                          )}
-
+                        {/* Uno / Ee-Aor Declare Button */}
+                        <div className="flex items-center gap-3">
                           <motion.button
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
-                            onClick={() => declareUno(displayedP?.id || 'player-1')}
+                            onClick={() => declareUno(displayedP?.id || 'human-player')}
                             className={`
                               px-8 py-2.5 text-white font-black italic tracking-tighter text-xl rounded-full border border-white/20 shadow-lg uppercase transition-all duration-300 cursor-pointer
                               ${unoButtonGlow || (unoDeclareWindow && displayedP && unoDeclareWindow.playerId === displayedP.id)
@@ -1560,31 +1882,38 @@ export default function App() {
 
                         {/* Color Focus Ring Indicators */}
                         <div className="text-right hidden sm:block">
-                          <span className="block text-[10px] uppercase tracking-widest text-slate-400 font-bold font-mono">Color Focus</span>
+                          <span className="block text-[10px] uppercase tracking-widest text-slate-400 font-bold font-mono">COLOR FOCUS</span>
                           <div className="flex gap-1.5 mt-1.5 justify-end">
                             <div className={`w-3 h-3 rounded-full bg-red-500 transition-all duration-300 ${gameState.activeColor === 'red' ? 'shadow-[0_0_10px_#ef4444] scale-125 opacity-100 ring-2 ring-white/30' : 'opacity-25'}`} />
                             <div className={`w-3 h-3 rounded-full bg-blue-500 transition-all duration-300 ${gameState.activeColor === 'blue' ? 'shadow-[0_0_10px_#3b82f6] scale-125 opacity-100 ring-2 ring-white/30' : 'opacity-25'}`} />
-                            <div className={`w-3 h-3 rounded-full bg-emerald-500 transition-all duration-300 ${gameState.activeColor === 'green' ? 'shadow-[0_0_10px_#10b981] scale-125 opacity-100 ring-2 ring-white/30' : 'opacity-25'}`} />
+                            <div className={`w-3 h-3 rounded-full bg-green-500 transition-all duration-300 ${gameState.activeColor === 'green' ? 'shadow-[0_0_10px_#10b981] scale-125 opacity-100 ring-2 ring-white/30' : 'opacity-25'}`} />
                             <div className={`w-3 h-3 rounded-full bg-amber-400 transition-all duration-300 ${gameState.activeColor === 'yellow' ? 'shadow-[0_0_10px_#fbbf24] scale-125 opacity-100 ring-2 ring-white/30' : 'opacity-25'}`} />
                           </div>
                         </div>
                       </div>
 
                       {/* THE HUMAN HAND OF CARDS */}
-                      <div className="w-full bg-slate-900/30 backdrop-blur-md p-5 rounded-2xl border border-white/5 min-h-[145px] flex items-center justify-center">
-                        <div className="flex gap-3 overflow-x-auto py-3 px-1 scrollbar-thin justify-start w-full max-w-full">
+                      <div className="w-full bg-slate-900/30 backdrop-blur-md p-5 rounded-2xl border border-white/5 min-h-[220px] md:min-h-[240px] flex items-center justify-center user-hand-panel">
+                        <div className="flex gap-3 overflow-x-auto py-4 px-2 scrollbar-thin justify-start w-full max-w-full">
                           {playableHand.map((card) => {
-                            const playable = isItsTurn && !isAiThinking && isValidPlay(card, gameState.activeColor, gameState.activeValue);
+                            const playable = isItsTurn && !isAiThinking && isValidPlay(card, gameState.activeColor, gameState.activeValue, gameState.flipSide);
                             return (
                               <div key={card.id} className="flex-shrink-0 transition-transform hover:-translate-y-2.5 duration-300">
-                                <UnoCard
-                                  card={card}
-                                  playable={playable}
-                                  onClick={() => playCard(card.id, displayedP!.id)}
-                                  size="md"
-                                  flipSide={gameState.flipSide}
-                                  theme={cardTheme}
-                                />
+                                <motion.div
+                                  layoutId={`card-${card.id}`}
+                                  initial={{ y: -250, scale: 0.2, opacity: 0 }}
+                                  animate={{ y: 0, scale: 1, opacity: 1 }}
+                                  transition={{ type: 'spring', damping: 22, stiffness: 150 }}
+                                >
+                                  <UnoCard
+                                    card={card}
+                                    playable={playable}
+                                    onClick={() => playCard(card.id, displayedP!.id)}
+                                    size="md"
+                                    flipSide={gameState.flipSide}
+                                    theme={cardTheme}
+                                  />
+                                </motion.div>
                               </div>
                             );
                           })}
@@ -1597,95 +1926,6 @@ export default function App() {
                   );
                 })()}
 
-              </div>
-
-            </div>
-
-            {/* SIDE PANEL: COOP GAME LOGS & SCORESTATS (1 column wide) */}
-            <div className="flex flex-col justify-between bg-stone-900/40 border border-white/5 p-4 rounded-3xl h-[70vh] lg:h-[75vh] z-20">
-              
-              {/* Turn cues */}
-              <div className="pb-3 border-b border-white/5">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-bold text-xs text-stone-300 flex items-center gap-1 font-mono uppercase tracking-wider">
-                    <Compass size={14} className="text-amber-400" /> สถานะเวลานี้
-                  </h3>
-                  <div className="text-[10px] bg-amber-500/10 text-amber-300 border border-amber-500/20 px-2 py-0.5 rounded-full font-bold">
-                    ตาที่ {gameState.logs.filter(l => l.type === 'play').length + 1}
-                  </div>
-                </div>
-
-                {/* Who's Turn indicator */}
-                <div className="bg-stone-950/80 border border-white/5 rounded-2xl p-3 flex items-center gap-3">
-                  <div className="relative">
-                    <div className="w-9 h-9 rounded-full bg-slate-800 flex items-center justify-center text-lg border border-yellow-400 shadow">
-                      {gameState.players[gameState.currentPlayerIndex]?.avatar || '👤'}
-                    </div>
-                    {isAiThinking && (
-                      <span className="absolute -bottom-1 -right-1 w-3 h-3 rounded-full bg-amber-400 border border-stone-950 flex items-center justify-center animate-ping text-[6px]">
-                        ●
-                      </span>
-                    )}
-                  </div>
-                  
-                  <div className="flex-1 min-w-0">
-                    <span className="text-[9px] text-amber-400 uppercase tracking-widest font-mono block">ผู้เล่นตาปัจจุบัน</span>
-                    <span className="text-xs font-black text-white block truncate">
-                      {gameState.players[gameState.currentPlayerIndex]?.name || 'กำลังรอ...'}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* LIVE SCROLLING LOGS */}
-              <div className="flex-1 overflow-y-auto my-3 pr-1 space-y-2 max-h-[300px] lg:max-h-none scrollbar-thin">
-                <div className="flex items-center gap-1 text-xs font-medium text-stone-400 mb-2 font-mono uppercase">
-                  <History size={12} /> เครื่องบันทึกการ์ด (Match Log)
-                </div>
-                
-                {gameState.logs.length === 0 && (
-                  <div className="text-center text-xs text-stone-600 py-10">
-                    ยังไม่มีความเคลื่อนไหว
-                  </div>
-                )}
-
-                {gameState.logs.map((log) => {
-                  let badgeBg = 'bg-stone-800 text-stone-300';
-                  if (log.type === 'play') badgeBg = 'bg-blue-500/10 text-blue-400 border border-blue-500/20';
-                  if (log.type === 'draw') badgeBg = 'bg-yellow-500/10 text-yellow-500/90 border border-yellow-500/20';
-                  if (log.type === 'uno') badgeBg = 'bg-red-500/10 text-red-500 font-extrabold border border-red-500/20 animate-pulse';
-                  if (log.type === 'win') badgeBg = 'bg-green-500/10 text-green-400 font-extrabold border border-green-500/20';
-
-                  return (
-                    <div key={log.id} className="text-xs bg-stone-950/40 p-2.5 rounded-xl border border-white/5 space-y-1">
-                      <div className="flex items-center justify-between">
-                        <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded-full ${badgeBg} uppercase font-mono`}>
-                          {log.type}
-                        </span>
-                        <span className="text-[9px] text-stone-500 font-mono">{log.timestamp}</span>
-                      </div>
-                      <p className="text-stone-300 text-xs font-medium leading-relaxed">{log.message}</p>
-                    </div>
-                  );
-                })}
-                <div ref={logsEndRef} />
-              </div>
-
-              {/* RESET / PANIC OPTIONS */}
-              <div className="pt-3 border-t border-white/5 grid grid-cols-2 gap-2">
-                <button
-                  onClick={handleResetOrReplay}
-                  className="py-2 px-3 rounded-xl bg-stone-900 border border-stone-800 hover:bg-stone-800 text-stone-300 hover:text-white font-bold text-xs flex items-center justify-center gap-1 transition-colors cursor-pointer"
-                >
-                  <RotateCcw size={12} /> รีเซ็ตเกมใหม่
-                </button>
-
-                <button
-                  onClick={handleResignOrQuit}
-                  className="py-2 px-3 rounded-xl bg-red-950/20 border border-red-900/30 hover:bg-red-900/20 text-red-400 hover:text-red-300 font-bold text-xs flex items-center justify-center gap-1 transition-colors cursor-pointer"
-                >
-                  <AlertTriangle size={12} /> ยอมแพ้เกม
-                </button>
               </div>
 
             </div>
@@ -1780,6 +2020,7 @@ export default function App() {
       <ColorPickerModal 
         isOpen={gameState.wildColorSelectionCard !== null}
         onSelect={handleResolveColorChoice}
+        flipSide={gameState.flipSide}
       />
 
       {/* HOW TO MANUAL OVERLAY MODAL */}
@@ -1883,6 +2124,89 @@ export default function App() {
         </div>
       )}
 
+      {/* NONT-DAM SPECIAL CARD EFFECT OVERLAY MODAL */}
+      <AnimatePresence>
+        {nontDamVisualEffect && (
+          <div className="fixed top-20 right-4 md:right-6 z-50 w-[320px] md:w-[360px] overflow-hidden pointer-events-auto">
+            <motion.div 
+              initial={{ x: 300, opacity: 0, scale: 0.95 }}
+              animate={{ x: 0, opacity: 1, scale: 1 }}
+              exit={{ x: 300, opacity: 0, scale: 0.95 }}
+              transition={{ type: 'spring', damping: 20, stiffness: 130 }}
+              className="relative w-full bg-[#120b24] border-[4px] rounded-none p-4 shadow-[0_10px_30px_rgba(0,0,0,0.8),_0_0_30px_rgba(168,85,247,0.3)] flex flex-col gap-3"
+              style={{
+                borderColor: '#d8b4fe', // light purple border
+                boxShadow: 'inset 0 0 15px rgba(0,0,0,0.8), 0 10px 30px rgba(0,0,0,0.8), 0 0 30px rgba(168,85,247,0.3)',
+                imageRendering: 'pixelated'
+              }}
+            >
+              {/* Scanline glitch decoration */}
+              <div 
+                className="absolute inset-0 opacity-15 pointer-events-none z-10" 
+                style={{
+                  backgroundImage: 'linear-gradient(rgba(0,0,0,0) 50%, rgba(0,0,0,0.4) 50%)',
+                  backgroundSize: '100% 4px',
+                }}
+              />
+
+              {/* Header */}
+              <div className="text-yellow-400 font-mono font-black text-[9px] tracking-widest flex items-center justify-between uppercase border-b border-purple-900/60 pb-1.5 z-20">
+                <span className="flex items-center gap-1">
+                  <Sparkles size={10} className="text-yellow-400 animate-spin-slow" />
+                  ★ LEGENDARY NONT-DAM ★
+                </span>
+                <button 
+                  onClick={() => setNontDamVisualEffect(null)}
+                  className="text-stone-400 hover:text-white cursor-pointer transition-colors px-1 font-sans"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Content Row: Avatar left, Title/Subtitle right */}
+              <div className="flex items-start gap-3 z-20">
+                {/* Pixel Art Portrait */}
+                <div className="flex-shrink-0 relative p-1 bg-black border-2 border-yellow-500 shadow-md">
+                  <div className="absolute inset-0 bg-gradient-to-tr from-purple-500/20 to-transparent animate-pulse" />
+                  <NontDamPixelArt size={56} />
+                </div>
+
+                {/* Active Special Skill name */}
+                <div className="flex-grow min-w-0 space-y-1">
+                  <span className="text-[8px] text-cyan-400 uppercase tracking-widest font-mono font-black block">Special Skill Triggered</span>
+                  <h2 
+                    className="text-xs md:text-sm font-black text-white uppercase tracking-tight truncate"
+                    style={{ textShadow: '1px 1px 0px #000' }}
+                  >
+                    {nontDamVisualEffect.title}
+                  </h2>
+                  <p className="text-[10px] text-stone-400 font-sans leading-tight">
+                    {nontDamVisualEffect.description}
+                  </p>
+                </div>
+              </div>
+
+              {/* Funny lyrics / rap shout */}
+              <div className="w-full bg-purple-950/40 border border-purple-900/40 p-2.5 rounded-none z-20">
+                <p className="text-amber-300 font-bold text-[10px] md:text-[11px] italic leading-tight font-mono text-center">
+                  "{nontDamVisualEffect.quote}"
+                </p>
+              </div>
+
+              {/* Skip button at bottom */}
+              <div className="flex justify-end z-20">
+                <button
+                  onClick={() => setNontDamVisualEffect(null)}
+                  className="px-3 py-1 border border-slate-700 bg-slate-900/80 hover:bg-slate-800 text-[8px] text-slate-400 hover:text-white uppercase font-mono tracking-wider transition-colors cursor-pointer"
+                >
+                  Skip Effect
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
     </div>
   );
 }
@@ -1920,36 +2244,43 @@ const PlayerPanel: React.FC<PlayerPanelProps> = ({ player, isActive, isThinking,
         )}
       </AnimatePresence>
 
+      {/* Active turn sonar ping outer ring */}
+      {isActive && (
+        <span className="absolute inset-0 w-12 h-12 md:w-14 md:h-14 rounded-2xl border border-cyan-400 animate-ping opacity-60 pointer-events-none" />
+      )}
+
       <div className={`
-        relative w-12 h-12 md:w-14 md:h-14 rounded-full flex items-center justify-center text-2xl border transition-all duration-300
+        relative w-12 h-12 md:w-14 md:h-14 rounded-2xl flex items-center justify-center text-3xl transition-all duration-300 border-[2.5px]
         ${isActive 
-          ? 'bg-blue-500/25 border-blue-400 scale-110 shadow-[0_0_15px_rgba(59,130,246,0.25)] ring-4 ring-blue-500/20' 
-          : 'bg-slate-950/80 border-white/5 opacity-95'}
+          ? 'bg-gradient-to-br from-blue-500/25 via-indigo-500/20 to-purple-500/20 border-cyan-400 scale-110 shadow-[0_0_20px_rgba(6,182,212,0.4)] ring-4 ring-cyan-500/10' 
+          : 'bg-gradient-to-br from-slate-900/90 to-slate-950/95 border-white/10 opacity-90'}
       `}>
-        {player.avatar}
+        <span className="select-none">{player.avatar}</span>
 
         {/* Turn Pulse Badge */}
         {isActive && (
-          <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-green-500 border-2 border-slate-950 flex items-center justify-center animate-pulse">
+          <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-green-500 border-2 border-slate-950 flex items-center justify-center shadow-[0_0_8px_rgba(34,197,94,0.6)]">
             <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
           </span>
         )}
 
-        {/* Card Counter bubble */}
+        {/* Card Counter Badge - Shaped like a tiny card! */}
         <span className={`
-          absolute -bottom-1 -right-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold font-mono border text-white shadow-md
-          ${player.cards.length <= 2 ? 'bg-red-600 border-red-500 animate-pulse' : 'bg-slate-900 border-white/5'}
+          absolute -bottom-1.5 -right-1.5 w-6 h-8 rounded-[4px] flex flex-col items-center justify-center text-[10px] font-black font-mono border shadow-lg transition-all duration-300
+          ${player.cards.length <= 2 
+            ? 'bg-gradient-to-b from-red-500 to-red-700 border-red-400 text-white animate-pulse shadow-[0_0_10px_rgba(239,68,68,0.5)]' 
+            : 'bg-gradient-to-b from-slate-800 to-slate-950 border-white/20 text-yellow-400 shadow-[0_4px_8px_rgba(0,0,0,0.5)]'}
         `}>
-          {player.cards.length}
+          <span className="text-[10px] leading-none select-none">{player.cards.length}</span>
         </span>
       </div>
 
-      <div className="mt-1.5 flex flex-col items-center">
+      <div className="mt-2 flex flex-col items-center">
         <span className="text-[10px] font-bold text-stone-300 block max-w-[80px] truncate">
           {player.name}
         </span>
         {player.cards.length === 1 && (
-          <span className="bg-red-500 text-stone-950 text-[8px] font-black px-1.5 py-0.2 rounded-full uppercase font-sans animate-bounce mt-0.5 shadow-sm">
+          <span className="bg-gradient-to-r from-red-500 to-rose-600 text-white text-[8px] font-black px-2 py-0.5 rounded-full uppercase font-sans animate-bounce mt-1 shadow-[0_2px_6px_rgba(239,68,68,0.4)]">
             อีอ้อ!
           </span>
         )}

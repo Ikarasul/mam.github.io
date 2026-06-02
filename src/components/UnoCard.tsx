@@ -170,11 +170,49 @@ const getPixelCardBgColor = (c: CardColor, flipSide: 'light' | 'dark' = 'light')
 };
 
 const renderPixelCardBack = (isDark: boolean) => {
-  const strokeColor = isDark ? "#06b6d4" : "#eab308";
-  const ovalFill = isDark ? "#581c87" : "#dc2626";
-  const ovalStroke = isDark ? "#f43f5e" : "#f59e0b";
-  const textColor = isDark ? "#06b6d4" : "#facc15";
+  if (isDark) {
+    // ===== DARK FLIP SIDE BACK: Deep space, neon teal/cyan accent =====
+    return (
+      <svg
+        viewBox="0 0 32 48"
+        className="w-full h-full"
+        style={{ imageRendering: 'pixelated', shapeRendering: 'crispEdges' }}
+      >
+        {/* Deep dark BG */}
+        <rect x="0" y="0" width="32" height="48" fill="#0d0d1a" />
+        {/* Outer neon border */}
+        <rect x="1" y="1" width="30" height="46" fill="none" stroke="#06b6d4" strokeWidth="1.5" />
+        {/* Inner grid lines */}
+        <line x1="16" y1="1" x2="16" y2="47" stroke="#06b6d420" strokeWidth="0.5" />
+        <line x1="1" y1="24" x2="31" y2="24" stroke="#06b6d420" strokeWidth="0.5" />
+        {/* Diagonal stripes */}
+        <path d="M0,12 L12,0 M0,28 L28,0 M0,44 L32,12 M4,48 L32,20 M18,48 L32,34" stroke="#06b6d415" strokeWidth="1" />
+        {/* Central dark oval */}
+        <rect x="6" y="12" width="20" height="24" rx="7" ry="11"
+          fill="#581c87" stroke="#f43f5e" strokeWidth="1.5"
+          transform="rotate(-18 16 24)"
+        />
+        {/* UNO FLIP text */}
+        <g transform="rotate(-10 16 24)">
+          <text x="16.5" y="22" fontFamily="'Press Start 2P', monospace" fontSize="5.5"
+            fill="#06b6d4" textAnchor="middle" fontWeight="bold" stroke="#000000" strokeWidth="1.2" paintOrder="stroke fill">
+            อีอ้อ!
+          </text>
+          <text x="16" y="29" fontFamily="'Silkscreen', monospace" fontSize="3.5"
+            fill="#f43f5e" textAnchor="middle" fontWeight="bold" stroke="#000000" strokeWidth="0.8" paintOrder="stroke fill">
+            ▼ DARK ▼
+          </text>
+        </g>
+        {/* Corner neon dots */}
+        <circle cx="4" cy="4" r="1.5" fill="#06b6d4" />
+        <circle cx="28" cy="4" r="1.5" fill="#f43f5e" />
+        <circle cx="4" cy="44" r="1.5" fill="#f43f5e" />
+        <circle cx="28" cy="44" r="1.5" fill="#06b6d4" />
+      </svg>
+    );
+  }
 
+  // ===== LIGHT FLIP SIDE BACK: Bright red, yellow gold, classic UNO FLIP =====
   return (
     <svg
       viewBox="0 0 32 48"
@@ -183,59 +221,31 @@ const renderPixelCardBack = (isDark: boolean) => {
     >
       {/* Black background */}
       <rect x="0" y="0" width="32" height="48" fill="#0c0a09" />
-      
       {/* Outer border */}
-      <rect x="1.5" y="1.5" width="29" height="45" fill="none" stroke={strokeColor} strokeWidth="1" />
-      
+      <rect x="1.5" y="1.5" width="29" height="45" fill="none" stroke="#eab308" strokeWidth="1" />
       {/* Diagonal pinstripe lines */}
       <path d="M0,8 L8,0 M0,20 L20,0 M0,32 L32,0 M0,44 L32,12 M8,48 L32,24 M20,48 L32,36" stroke="rgba(255, 255, 255, 0.08)" strokeWidth="1" />
-
       {/* Slanted oval */}
-      <rect
-        x="6"
-        y="12"
-        width="20"
-        height="24"
-        rx="7"
-        ry="11"
-        fill={ovalFill}
-        stroke={ovalStroke}
-        strokeWidth="1"
+      <rect x="6" y="12" width="20" height="24" rx="7" ry="11"
+        fill="#dc2626" stroke="#f59e0b" strokeWidth="1"
         transform="rotate(-18 16 24)"
       />
-
       {/* Text Logo in Center */}
       <g transform="rotate(-10 16 24)">
-        <text
-          x="16.5"
-          y="24"
-          fontFamily="'Press Start 2P', monospace"
-          fontSize="5.5"
-          fill={isDark ? "#ffffff" : textColor}
-          textAnchor="middle"
-          fontWeight="bold"
-          stroke="black"
-          strokeWidth="1.2"
-          paintOrder="stroke fill"
-        >
+        <text x="16.5" y="24" fontFamily="'Press Start 2P', monospace" fontSize="5.5"
+          fill="#facc15" textAnchor="middle" fontWeight="bold" stroke="black" strokeWidth="1.2" paintOrder="stroke fill">
           อีอ้อ!
         </text>
-        <text
-          x="16"
-          y="31"
-          fontFamily="'Silkscreen', monospace"
-          fontSize="3.2"
-          fill="#ffffff"
-          textAnchor="middle"
-          fontWeight="bold"
-          stroke="black"
-          strokeWidth="0.8"
-          paintOrder="stroke fill"
-          opacity="0.85"
-        >
-          {isDark ? "▼ DARK ▼" : "▲ ARENA ▲"}
+        <text x="16" y="31" fontFamily="'Silkscreen', monospace" fontSize="3.2"
+          fill="#ffffff" textAnchor="middle" fontWeight="bold" stroke="black" strokeWidth="0.8" paintOrder="stroke fill" opacity="0.85">
+          ▲ ARENA ▲
         </text>
       </g>
+      {/* Corner dots */}
+      <circle cx="4" cy="4" r="1.5" fill="#eab308" />
+      <circle cx="28" cy="4" r="1.5" fill="#eab308" />
+      <circle cx="4" cy="44" r="1.5" fill="#eab308" />
+      <circle cx="28" cy="44" r="1.5" fill="#eab308" />
     </svg>
   );
 };
@@ -454,23 +464,69 @@ export const UnoCard: React.FC<UnoCardProps> = ({
   flipSide = 'light',
   theme = 'pixel',
 }) => {
-  const { color, value } = card;
+  const isDark = flipSide === 'dark';
+  const color = (isDark && card.darkColor) ? card.darkColor : card.color;
+  const value = (isDark && card.darkValue) ? card.darkValue : card.value;
+  
+  const isSpecial = ['skip', 'reverse', 'draw2', 'wild', 'draw4', 'nont_dam', 'flip'].includes(value);
+
+  const getCardDescription = (): string => {
+    if (isDark) {
+      switch (value) {
+        case 'skip': return 'ข้ามผู้เล่นทุกคนจนกว่าจะวนกลับมารอบตัวเองอีกครั้ง! 🚫';
+        case 'reverse': return 'สลับทิศทางการเล่นทวนเข็ม/ตามเข็ม 🔄';
+        case 'draw2': return 'จั่วเบิ้ล 5 ใบ! ผู้เล่นคนถัดไปต้องจั่ว 5 ใบและโดนข้ามตา ➕๕';
+        case 'wild': return 'เปลี่ยนสีสลบลาย! สิทธิ์ระบุสีหลักถัดไป (ชมพู/เทล/ม่วง/ส้ม) 🎨';
+        case 'draw4': return 'มหาภัยจั่ว 6 ใบ! เปลี่ยนสีหลักและให้คนถัดไปจั่ว 6 ใบพร้อมโดนข้ามตา ☠️';
+        case 'flip': return 'พลิกมิติกระจก! สลับหน้าการ์ดทุกคนกลับสู่มิติโลกสว่าง (Light Side) 🌀';
+        case 'nont_dam': return '👑 นนท์ดำสุดแรร์! สุ่มแรปแบทเทิลป่วนกระแทกหูรอบโต๊ะคนละ 1 ใบ หรือแลกการ์ดสุ่มวนขวา หรือโอนการ์ดช่วยคนจน!';
+        default: return '';
+      }
+    } else {
+      switch (value) {
+        case 'skip': return 'ข้ามตาผู้เล่น! ผู้เล่นคนถัดไปโดนข้ามตา 1 รอบ 🚫';
+        case 'reverse': return 'สลับทิศทางการเล่นทวนเข็ม/ตามเข็ม 🔄';
+        case 'draw2': return 'จั่วเจ็บ 2 ใบ! ผู้เล่นคนถัดไปต้องจั่ว 2 ใบและโดนข้ามตา ➕๒';
+        case 'wild': return 'เปลี่ยนสีหลัก! สิทธิ์ระบุสีหลักถัดไป (แดง/น้ำเงิน/เขียว/เหลือง) 🎨';
+        case 'draw4': return 'จั่วโหด 4 ใบ! เปลี่ยนสีหลักและให้คนถัดไปจั่ว 4 ใบพร้อมโดนข้ามตา ☠️';
+        case 'flip': return 'สลับมิติกระจก! พลิกการ์ดทุกคนเข้าสู่มิติโลกมืดเรืองแสง (Dark Side) 🌀';
+        case 'nont_dam': return '👑 นนท์ดำสุดแรร์! สุ่มแรปแบทเทิลป่วนกระแทกหูรอบโต๊ะคนละ 1 ใบ หรือแลกการ์ดสุ่มวนขวา หรือโอนการ์ดช่วยคนจน!';
+        default: return '';
+      }
+    }
+  };
+
+  const tooltipText = getCardDescription();
+
+  const renderTooltip = () => {
+    if (isBack || !isSpecial || !tooltipText) return null;
+
+    return (
+      <div className="absolute bottom-[105%] left-1/2 -translate-x-1/2 w-44 p-2.5 bg-slate-950/95 backdrop-blur-md border border-white/10 rounded-xl shadow-2xl text-[10px] text-zinc-100 font-sans leading-normal text-center pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-300 z-50 transform scale-95 group-hover:scale-100 filter drop-shadow-[0_4px_12px_rgba(0,0,0,0.5)]">
+        <div className="absolute top-full left-1/2 -translate-x-1/2 -translate-y-[1px] border-[5px] border-transparent border-t-slate-950/95" />
+        <div className="font-extrabold text-[10.5px] text-amber-400 mb-1 border-b border-white/10 pb-1 uppercase tracking-wider font-sans">
+          {isDark ? 'Dark Mode' : 'Light Mode'}
+        </div>
+        <p className="font-medium text-slate-300 font-sans">{tooltipText}</p>
+      </div>
+    );
+  };
+
 
   // Custom class for size
   const sizeClasses = {
-    sm: 'w-14 h-20 text-[10px] rounded-lg border-2',
-    md: 'w-28 h-42 md:w-32 md:h-46 rounded-[14px] border-[3.5px]',
-    lg: 'w-32 h-48 md:w-36 md:h-54 rounded-2xl border-4',
+    sm: 'w-14 h-20 text-[10px] rounded-lg border-2 size-sm-card',
+    md: 'w-28 h-42 md:w-32 md:h-46 rounded-[14px] border-[3.5px] size-md-card',
+    lg: 'w-32 h-48 md:w-36 md:h-54 rounded-2xl border-4 size-lg-card',
   };
 
   const pixelSizeClasses = {
-    sm: 'w-14 h-20 text-[10px] rounded-none border-2 border-black',
-    md: 'w-28 h-42 md:w-32 md:h-46 rounded-none border-[3.5px] border-black',
-    lg: 'w-32 h-48 md:w-36 md:h-54 rounded-none border-4 border-black',
+    sm: 'w-14 h-20 text-[10px] rounded-none border-2 border-black size-sm-card',
+    md: 'w-28 h-42 md:w-32 md:h-46 rounded-none border-[3.5px] border-black size-md-card',
+    lg: 'w-32 h-48 md:w-36 md:h-54 rounded-none border-4 border-black size-lg-card',
   };
 
   const selectedSizeClass = theme === 'pixel' ? pixelSizeClasses[size] : sizeClasses[size];
-  const isDark = flipSide === 'dark';
 
   // --- RENDER COMPACT RETRO BACKFACE ---
   if (isBack) {
@@ -546,14 +602,17 @@ export const UnoCard: React.FC<UnoCardProps> = ({
   // Let's pass all standard properties to it without modification
   if (value === 'nont_dam' && !isBack) {
     return (
-      <NontDamCard 
-        card={card}
-        playable={playable}
-        onClick={onClick}
-        hoverable={hoverable}
-        size={size}
-        isCurrentPlayMarker={isCurrentPlayMarker}
-      />
+      <div className="group relative">
+        <NontDamCard 
+          card={card}
+          playable={playable}
+          onClick={onClick}
+          hoverable={hoverable}
+          size={size}
+          isCurrentPlayMarker={isCurrentPlayMarker}
+        />
+        {renderTooltip()}
+      </div>
     );
   }
 
@@ -579,7 +638,7 @@ export const UnoCard: React.FC<UnoCardProps> = ({
   // --- RENDER PIXEL THEME CARD FRONT ---
   if (theme === 'pixel') {
     return (
-      <div className="relative">
+      <div className="relative group">
         {/* PIXEL SELECTION OUTLINES */}
         {(playable || isCurrentPlayMarker) && (
           <div className="absolute inset-[-4px] md:inset-[-6px] pointer-events-none z-30 animate-pulse">
@@ -612,6 +671,7 @@ export const UnoCard: React.FC<UnoCardProps> = ({
             <div className="absolute top-2 right-2 w-1.5 h-1.5 bg-cyan-400 border border-slate-950 animate-ping z-20 pointer-events-none" />
           )}
         </motion.div>
+        {renderTooltip()}
       </div>
     );
   }
@@ -619,47 +679,52 @@ export const UnoCard: React.FC<UnoCardProps> = ({
   // --- RENDER MINI CARD ('sm') IN NEON THEME ---
   if (size === 'sm') {
     return (
-      <motion.div
-        whileHover={playable && hoverable ? { y: -6, scale: 1.05 } : {}}
-        onClick={playable && onClick ? onClick : undefined}
-        className={`
-          ${selectedSizeClass} 
-          relative border-white select-none overflow-hidden
-          flex flex-col items-center justify-between p-1.5
-          ${playable ? 'cursor-pointer' : 'opacity-85'}
-        `}
-        style={{ 
-          backgroundColor: bgHexColor,
-          borderColor: isDark && color !== 'wild' ? featureHexColor : '#ffffff',
-          boxShadow: '0 2px 5px rgba(0,0,0,0.4)'
-        }}
-      >
-        {/* Holographic Glowing Border indicator */}
-        {(playable || isCurrentPlayMarker) && (
-          <div className="absolute inset-0 border-[2px] border-cyan-400 z-20 animate-pulse pointer-events-none" />
-        )}
-
-        {/* Top left corner val */}
-        <span className="self-start text-[10px] font-black leading-none" style={{ color: '#ffffff', ...getPixelOutlineShadow('#000000', 1.5) }}>
-          {displayChar}
-        </span>
-
-        {/* Center icon */}
-        <div className="my-auto scale-90">
-          {color === 'wild' ? (
-            <div className="w-5 h-5 rounded-full border border-black overflow-hidden relative">
-              <div className="absolute inset-0 bg-gradient-to-tr from-yellow-400 via-red-500 to-blue-500" />
-            </div>
-          ) : (
-            <span className="text-sm font-black text-white" style={getPixelOutlineShadow('#000000', 1.5)}>{displayChar}</span>
+      <div className="relative group">
+        <motion.div
+          whileHover={playable && hoverable ? { y: -6, scale: 1.05 } : {}}
+          onClick={playable && onClick ? onClick : undefined}
+          className={`
+            ${selectedSizeClass} 
+            relative border-white select-none overflow-hidden
+            flex flex-col items-center justify-between p-1.5
+            ${playable ? 'cursor-pointer' : 'opacity-85'}
+          `}
+          style={{ 
+            backgroundColor: bgHexColor,
+            borderColor: isDark && color !== 'wild' ? featureHexColor : '#ffffff',
+            boxShadow: '0 2px 5px rgba(0,0,0,0.4)',
+            width: '100%',
+            height: '100%'
+          }}
+        >
+          {/* Holographic Glowing Border indicator */}
+          {(playable || isCurrentPlayMarker) && (
+            <div className="absolute inset-0 border-[2px] border-cyan-400 z-20 animate-pulse pointer-events-none" />
           )}
-        </div>
 
-        {/* Bottom right corner rotated */}
-        <span className="self-end text-[10px] font-black leading-none rotate-180" style={{ color: '#ffffff', ...getPixelOutlineShadow('#000000', 1.5) }}>
-          {displayChar}
-        </span>
-      </motion.div>
+          {/* Top left corner val */}
+          <span className="self-start text-[10px] font-black leading-none" style={{ color: '#ffffff', ...getPixelOutlineShadow('#000000', 1.5) }}>
+            {displayChar}
+          </span>
+
+          {/* Center icon */}
+          <div className="my-auto scale-90">
+            {color === 'wild' ? (
+              <div className="w-5 h-5 rounded-full border border-black overflow-hidden relative">
+                <div className="absolute inset-0 bg-gradient-to-tr from-yellow-400 via-red-500 to-blue-500" />
+              </div>
+            ) : (
+              <span className="text-sm font-black text-white" style={getPixelOutlineShadow('#000000', 1.5)}>{displayChar}</span>
+            )}
+          </div>
+
+          {/* Bottom right corner rotated */}
+          <span className="self-end text-[10px] font-black leading-none rotate-180" style={{ color: '#ffffff', ...getPixelOutlineShadow('#000000', 1.5) }}>
+            {displayChar}
+          </span>
+        </motion.div>
+        {renderTooltip()}
+      </div>
     );
   }
 
@@ -667,7 +732,7 @@ export const UnoCard: React.FC<UnoCardProps> = ({
   const isSpecialAction = ['skip', 'reverse', 'draw2', 'wild', 'draw4', 'flip'].includes(value);
 
   return (
-    <div className="relative">
+    <div className="relative group">
       
       {/* 3D NEON SELECTION OUTLINES */}
       {(playable || isCurrentPlayMarker) && (
@@ -801,6 +866,7 @@ export const UnoCard: React.FC<UnoCardProps> = ({
           <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-cyan-400 border border-slate-950 animate-ping z-20 pointer-events-none" />
         )}
       </motion.div>
+      {renderTooltip()}
     </div>
   );
 };
