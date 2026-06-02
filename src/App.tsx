@@ -1,0 +1,1960 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import React, { useState, useEffect, useRef } from 'react';
+import { Card, CardColor, CardValue, Player, GameLog, GameState } from './types';
+import { generateDeck, shuffleDeck, isValidPlay, getCardColorClass, getCardColorNameThai, getCardValueThai } from './utils/unoLogic';
+import { UnoCard } from './components/UnoCard';
+import { ColorPickerModal } from './components/ColorPickerModal';
+import { NontDamCard } from './components/NontDamCard';
+import { LobbyScreen } from './components/LobbyScreen';
+import { playCardSound, playDrawSound, playUnoSound, playWinSound, playAlertSound, toggleSound, isSoundEnabled, playNontDamSound } from './utils/audio';
+import { motion, AnimatePresence } from 'motion/react';
+import { 
+  Volume2, 
+  VolumeX, 
+  Play, 
+  RotateCcw, 
+  Info, 
+  Sparkles, 
+  Compass, 
+  User, 
+  Bot, 
+  Trophy, 
+  Flame, 
+  History, 
+  Lightbulb, 
+  HelpCircle,
+  TrendingDown,
+  TrendingUp,
+  AlertTriangle,
+  Heart,
+  Users,
+  Globe,
+  RefreshCw,
+  Gamepad2
+} from 'lucide-react';
+
+// Pre-defined Bot Personalities
+const BOT_PROFILES = [
+  { id: 'bot-1', name: 'สมชาย 🤖', avatar: '🤖', desc: 'บอทสุขุมลงการ์ดอย่างมีหลักการ', quote: 'พึ่งโชคมากไปจะไม่ดีนะครับ' },
+  { id: 'bot-2', name: 'สมศรี 🦊', avatar: '🦊', desc: 'บอทจ้าวแผนการ ชอบเก็บการ์ดพิเศษไว้ตัดหน้า', quote: 'อย่าเพิ่งคิดว่าจะชนะฉันได้ล่ะ!' },
+  { id: 'bot-3', name: 'มานะ 🐼', avatar: '🐼', desc: 'บอทเจ้าสำราญ ชอบลงคอมโบป่วนเกมเสมอ', quote: 'จั่วการ์ดไปเยอะๆ เลยพวกเรา!' }
+];
+
+export default function App() {
+  // Game Setup State
+  const [userName, setUserName] = useState('นักเล่นการ์ดไร้พ่าย');
+  const [gameSpeed, setGameSpeed] = useState<number>(1500); // ms delay
+  const [soundOn, setSoundOn] = useState<boolean>(true);
+  const [showHowTo, setShowHowTo] = useState<boolean>(false);
+  const [showcaseQuoteIndex, setShowcaseQuoteIndex] = useState<number>(0);
+  const [isFlipMode, setIsFlipMode] = useState<boolean>(true); // Default to true so users see it immediately!
+  const [cardTheme, setCardTheme] = useState<'pixel' | 'neon'>('pixel'); // Default to pixel art!
+
+  // New Customizable Lobby Slots for 4 Players!
+  const [lobbySlots, setLobbySlots] = useState([
+    { id: 'player-1', name: 'คุณขี้โม้โอ้อวด 👑', isBot: false, avatar: '👑' },
+    { id: 'player-2', name: 'สมชายสายแว้น 🏍️', isBot: true, avatar: '🤖', botId: 'bot-1' },
+    { id: 'player-3', name: 'เจ๊สมศรีกลิ่นน้ำปลา 🦊', isBot: true, avatar: '🦊', botId: 'bot-2' },
+    { id: 'player-4', name: 'มานะสายพี้ใบตอง 🐼', isBot: true, avatar: '🐼', botId: 'bot-3' },
+  ]);
+
+  // Selected lobby mode ('classic' or 'friends' or 'online_mock')
+  const [lobbyMode, setLobbyMode] = useState<'classic' | 'friends' | 'online_mock'>('friends');
+
+  // Interactive multiplayer Pass & Play cover overlay screen holder
+  const [passCoverActivePlayer, setPassCoverActivePlayer] = useState<Player | null>(null);
+
+  // Simulated online matchmaking state triggers
+  const [onlineSearching, setOnlineSearching] = useState(false);
+  const [onlineProgress, setOnlineProgress] = useState('');
+  const [onlineStep, setOnlineStep] = useState(0);
+
+  // Core Game State
+  const [gameState, setGameState] = useState<GameState>({
+    deck: [],
+    discardPile: [],
+    players: [],
+    currentPlayerIndex: 0,
+    direction: 1,
+    activeColor: 'red',
+    activeValue: '0',
+    status: 'setup',
+    winnerId: null,
+    logs: [],
+    hasSaidUno: {},
+    wildColorSelectionCard: null,
+    flipModeEnabled: false,
+    flipSide: 'light'
+  });
+
+  // Assistant states
+  const [isAiThinking, setIsAiThinking] = useState<boolean>(false);
+  const [thinkingBubble, setThinkingBubble] = useState<string | null>(null);
+  const [unoButtonGlow, setUnoButtonGlow] = useState<boolean>(false);
+  const [hasUserAnnouncedUnoThisTurn, setHasUserAnnouncedUnoThisTurn] = useState<boolean>(false);
+  
+  // Timer for user to declared UNO after down to 1 card
+  const [unoDeclareWindow, setUnoDeclareWindow] = useState<{
+    active: boolean;
+    playerId: string;
+    expiresAt: number;
+  } | null>(null);
+
+  const logsEndRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll logs
+  useEffect(() => {
+    logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [gameState.logs]);
+
+  // Real WebSocket states
+  const wsRef = useRef<WebSocket | null>(null);
+  const [onlineRoomCode, setOnlineRoomCode] = useState<string | null>(null);
+  const [onlinePlayerId, setOnlinePlayerId] = useState<string | null>(null);
+  const [onlinePlayers, setOnlinePlayers] = useState<any[]>([]);
+  const [onlineIsHost, setOnlineIsHost] = useState<boolean>(false);
+  const [roomCodeInput, setRoomCodeInput] = useState<string>('');
+  const [onlineError, setOnlineError] = useState<string | null>(null);
+  const [isConnecting, setIsConnecting] = useState<boolean>(false);
+
+  const [onlineServerAddr, setOnlineServerAddr] = useState<string>(() => {
+    return localStorage.getItem('mam_card_server_addr') || 'localhost:3001';
+  });
+
+  const handleSetOnlineServerAddr = (addr: string) => {
+    setOnlineServerAddr(addr);
+    localStorage.setItem('mam_card_server_addr', addr);
+  };
+
+  // Close connection on component unmount
+  useEffect(() => {
+    return () => {
+      if (wsRef.current) {
+        wsRef.current.close();
+      }
+    };
+  }, []);
+
+  const connectWebSocket = (action: 'create' | 'join', codeToJoin?: string) => {
+    setIsConnecting(true);
+    setOnlineError(null);
+
+    if (wsRef.current) {
+      wsRef.current.close();
+    }
+
+    let serverAddr = onlineServerAddr.trim();
+    if (!serverAddr.startsWith('ws://') && !serverAddr.startsWith('wss://')) {
+      const isLocal = serverAddr.includes('localhost') || serverAddr.includes('127.0.0.1');
+      const protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+      const resolvedProtocol = isLocal ? 'ws://' : protocol;
+      serverAddr = `${resolvedProtocol}${serverAddr}`;
+    }
+
+    const socket = new WebSocket(serverAddr);
+    wsRef.current = socket;
+
+    socket.onopen = () => {
+      console.log('Connected to WebSocket server');
+      if (action === 'create') {
+        socket.send(JSON.stringify({
+          type: 'CREATE_ROOM',
+          payload: {
+            hostName: userName,
+            avatar: lobbySlots[0].avatar,
+            isFlipMode: isFlipMode,
+            cardTheme: cardTheme
+          }
+        }));
+      } else if (action === 'join' && codeToJoin) {
+        socket.send(JSON.stringify({
+          type: 'JOIN_ROOM',
+          payload: {
+            roomCode: codeToJoin,
+            playerName: userName,
+            avatar: lobbySlots[0].avatar
+          }
+        }));
+      }
+    };
+
+    socket.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        const { type, payload } = data;
+
+        switch (type) {
+          case 'ROOM_CREATED': {
+            setOnlineRoomCode(payload.roomCode);
+            setOnlinePlayerId(payload.playerId);
+            setOnlinePlayers(payload.players);
+            setOnlineIsHost(true);
+            setIsConnecting(false);
+            break;
+          }
+          case 'ROOM_UPDATED': {
+            setOnlinePlayers(payload.players);
+            break;
+          }
+          case 'JOIN_SUCCESS': {
+            setOnlineRoomCode(payload.roomCode);
+            setOnlinePlayerId(payload.playerId);
+            setOnlinePlayers(payload.players);
+            setOnlineIsHost(false);
+            setIsConnecting(false);
+            break;
+          }
+          case 'GAME_STATE_UPDATED': {
+            setGameState({
+              deck: Array.from({ length: payload.deckCount }, (_, i) => ({ id: `deck-${i}` } as Card)),
+              discardPile: payload.discardPile,
+              players: payload.players,
+              currentPlayerIndex: payload.currentPlayerIndex,
+              direction: payload.direction,
+              activeColor: payload.activeColor,
+              activeValue: payload.activeValue,
+              status: payload.status,
+              winnerId: payload.winnerId,
+              logs: payload.logs,
+              hasSaidUno: payload.hasSaidUno,
+              wildColorSelectionCard: payload.wildColorSelectionCard,
+              flipModeEnabled: payload.isFlipMode,
+              flipSide: payload.flipSide
+            });
+            setIsFlipMode(payload.isFlipMode);
+            setCardTheme(payload.cardTheme);
+            break;
+          }
+          case 'ERROR': {
+            setOnlineError(payload.message);
+            setIsConnecting(false);
+            if (wsRef.current) {
+              wsRef.current.close();
+            }
+            break;
+          }
+        }
+      } catch (e) {
+        console.error('Error parsing WebSocket message:', e);
+      }
+    };
+
+    socket.onclose = () => {
+      console.log('Disconnected from WebSocket server');
+      setOnlineRoomCode(null);
+      setOnlinePlayerId(null);
+      setOnlinePlayers([]);
+      setOnlineIsHost(false);
+      setIsConnecting(false);
+    };
+
+    socket.onerror = () => {
+      setOnlineError('ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ WebSocket ได้ กรุณาตรวจสอบว่าเซิร์ฟเวอร์ทำงานอยู่ ❌');
+      setIsConnecting(false);
+    };
+  };
+
+  const disconnectWebSocket = () => {
+    if (wsRef.current) {
+      wsRef.current.close();
+      wsRef.current = null;
+    }
+    setOnlineRoomCode(null);
+    setOnlinePlayerId(null);
+    setOnlinePlayers([]);
+    setOnlineIsHost(false);
+    setGameState(prev => ({ ...prev, status: 'setup' }));
+  };
+
+
+  // Handle Turn loop for Bots & Pass-and-Play Transitions
+  useEffect(() => {
+    if (gameState.status !== 'playing') return;
+    if (lobbyMode === 'online_mock') return;
+
+    const currentPlayer = gameState.players[gameState.currentPlayerIndex];
+    if (!currentPlayer) return;
+
+    // Monitor if the user needs to say UNO or faced a penalty
+    if (unoDeclareWindow && Date.now() > unoDeclareWindow.expiresAt) {
+      // Challenge window expired. Check if someone should challenge!
+      handleChallengeTimeout();
+    }
+
+    // Is it AI Bot's turn?
+    if (currentPlayer.isBot) {
+      setIsAiThinking(true);
+      // Give them a funny saying!
+      const botProfile = BOT_PROFILES.find(b => b.id === currentPlayer.id) || 
+                         (currentPlayer.id.includes('bot-2') ? BOT_PROFILES[1] : 
+                          currentPlayer.id.includes('bot-3') ? BOT_PROFILES[2] : BOT_PROFILES[0]);
+      if (botProfile) {
+        setThinkingBubble(botProfile.quote);
+      } else {
+        setThinkingBubble("ศึกนี้ข้าต้องขิงระเบิดสะเก็ดดาว!");
+      }
+
+      const timer = setTimeout(() => {
+        executeBotTurn(currentPlayer);
+      }, gameSpeed);
+
+      return () => clearTimeout(timer);
+    } else {
+      setIsAiThinking(false);
+      setThinkingBubble(null);
+      // If user has 2 cards and plays 1, trigger glowing UNO button to alert them
+      if (currentPlayer.cards.length === 2) {
+        setUnoButtonGlow(true);
+      } else {
+        setUnoButtonGlow(false);
+      }
+
+      // Pass Cover screen for Multi-human games
+      const numHumans = gameState.players.filter(p => !p.isBot).length;
+      if (numHumans > 1) {
+        setPassCoverActivePlayer(currentPlayer);
+      }
+    }
+  }, [gameState.currentPlayerIndex, gameState.status]);
+
+  // Helper: Append a new log
+  const addLog = (message: string, type: GameLog['type'] = 'system') => {
+    const newLog: GameLog = {
+      id: `log-${Date.now()}-${Math.random()}`,
+      timestamp: new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+      message,
+      type
+    };
+    setGameState(prev => ({
+      ...prev,
+      logs: [...prev.logs, newLog]
+    }));
+  };
+
+  // Sound handler
+  const handleToggleSound = () => {
+    const isNowOn = toggleSound();
+    setSoundOn(isNowOn);
+  };
+
+  // Setup / Initialize Game
+  const startNewGame = () => {
+    playCardSound();
+    // 1. Generate standard deck and shuffle
+    let newDeck = generateDeck(isFlipMode);
+    newDeck = shuffleDeck(newDeck);
+
+    // 2. Setup players based on lobby mode
+    let allPlayers: Player[] = [];
+    
+    if (lobbyMode === 'friends') {
+      allPlayers = lobbySlots.map((slot, index) => ({
+        id: slot.id,
+        name: slot.name || `แรปเปอร์เบอร์ #${index + 1}`,
+        cards: [],
+        isBot: slot.isBot,
+        avatar: slot.avatar
+      }));
+    } else if (lobbyMode === 'online_mock') {
+      allPlayers = [
+        { id: 'player-1', name: userName || 'คุณแรปเปอร์หลักสิบ', cards: [], isBot: false, avatar: '👑' },
+        { id: 'player-2', name: 'ดีเจตับอักเสบ 🎧', cards: [], isBot: true, avatar: '😎' },
+        { id: 'player-3', name: 'ตู่_มอไซต์ซิ่ง 🏍️', cards: [], isBot: true, avatar: '🤡' },
+        { id: 'player-4', name: 'เจ๊สมรกลิ่นปลาร้า 👩‍🍳', cards: [], isBot: true, avatar: '🦊' }
+      ];
+    } else {
+      // Classic Mode
+      const humanPlayer: Player = {
+        id: 'player-1',
+        name: userName || 'คุณ',
+        cards: [],
+        isBot: false,
+        avatar: '👑'
+      };
+      const botPlayers: Player[] = BOT_PROFILES.map((profile, i) => ({
+        id: `player-${i + 2}`,
+        name: profile.name,
+        cards: [],
+        isBot: true,
+        avatar: profile.avatar
+      }));
+      allPlayers = [humanPlayer, ...botPlayers];
+    }
+
+    // Deal cards sequentially
+    for (let i = 0; i < 7; i++) {
+      allPlayers.forEach(p => {
+        const card = newDeck.pop();
+        if (card) p.cards.push(card);
+      });
+    }
+
+    // 3. Find first card for discard pile that is NOT wild/special/flip
+    let startCardIndex = newDeck.findIndex(c => c.color !== 'wild' && c.value !== 'skip' && c.value !== 'reverse' && c.value !== 'draw2' && c.value !== 'flip');
+    if (startCardIndex === -1) startCardIndex = 0; // Fallback
+    
+    const [startCard] = newDeck.splice(startCardIndex, 1);
+    const initialDiscardPile = [startCard];
+
+    // Reset Uno timers
+    setUnoDeclareWindow(null);
+    setHasUserAnnouncedUnoThisTurn(false);
+    setPassCoverActivePlayer(null);
+
+    // 4. Update GameState
+    setGameState({
+      deck: newDeck,
+      discardPile: initialDiscardPile,
+      players: allPlayers,
+      currentPlayerIndex: 0, // First slot goes first
+      direction: 1, // Clockwise
+      activeColor: startCard.color,
+      activeValue: startCard.value,
+      status: 'playing',
+      winnerId: null,
+      logs: [],
+      hasSaidUno: {},
+      wildColorSelectionCard: null,
+      flipModeEnabled: isFlipMode,
+      flipSide: 'light'
+    });
+
+    addLog(`🎮 เกมใหม่เริ่มต้นแล้ว! ${allPlayers[0].name} เริ่มตาก่อนเพื่อน`, 'system');
+    addLog(`🎬 การ์ดเริ่มต้นคือ [${getCardColorNameThai(startCard.color)} ${getCardValueThai(startCard.value)}]`, 'system');
+  };
+
+  const handleMainStartMatch = () => {
+    if (lobbyMode === 'online_mock') {
+      if (onlineRoomCode === null) {
+        alert('กรุณาสร้างห้องหรือเข้าร่วมห้องก่อนเพื่อเล่นออนไลน์ ⚠️');
+      } else if (onlineIsHost) {
+        wsRef.current?.send(JSON.stringify({ type: 'START_GAME' }));
+      } else {
+        alert('เฉพาะหัวหน้าห้อง (Host) เท่านั้นที่สามารถกดเริ่มเกมได้ 🚫');
+      }
+    } else {
+      startNewGame();
+    }
+  };
+
+  const handleResetOrReplay = () => {
+    if (lobbyMode === 'online_mock') {
+      if (onlineIsHost) {
+        if (window.confirm('คุณต้องการรีเซ็ตบอร์ดเกมและเริ่มกระดานใหม่ใช่หรือไม่?')) {
+          wsRef.current?.send(JSON.stringify({ type: 'RESET_GAME' }));
+        }
+      } else {
+        alert('เฉพาะหัวหน้าห้อง (Host) เท่านั้นที่สามารถรีเซ็ตเกมได้ 🚫');
+      }
+    } else {
+      if (window.confirm('คุณต้องการรีเซ็ตบอร์ดเกมและเริ่มกระดานใหม่ใช่หรือไม่?')) {
+        startNewGame();
+      }
+    }
+  };
+
+  const handleResignOrQuit = () => {
+    if (lobbyMode === 'online_mock') {
+      if (window.confirm('คุณต้องการออกจากห้องและกลับไปเมนูหลักใช่หรือไม่?')) {
+        disconnectWebSocket();
+      }
+    } else {
+      if (window.confirm('คุณต้องการยอมแพ้และกลับไปเมนูหลักใช่หรือไม่?')) {
+        setGameState(prev => ({ ...prev, status: 'setup' }));
+      }
+    }
+  };
+
+  const handleReplayGame = () => {
+    if (lobbyMode === 'online_mock') {
+      if (onlineIsHost) {
+        wsRef.current?.send(JSON.stringify({ type: 'RESET_GAME' }));
+      } else {
+        alert('เฉพาะหัวหน้าห้อง (Host) เท่านั้นที่สามารถเริ่มเล่นตาถัดไปได้ 🚫');
+      }
+    } else {
+      startNewGame();
+    }
+  };
+
+  const handleBackToHome = () => {
+    if (lobbyMode === 'online_mock') {
+      disconnectWebSocket();
+    } else {
+      setGameState(prev => ({ ...prev, status: 'setup' }));
+    }
+  };
+
+  // Calculate Next Player index
+  const getNextPlayerIndex = (currentIndex: number, dir: 1 | -1, step = 1): number => {
+    return (currentIndex + step * dir + 4) % 4;
+  };
+
+  // Play normal/special card handler (for both bots and player)
+  const playCard = (cardId: string, authorPlayerId: string, chosenWildColor?: Exclude<CardColor, 'wild'>) => {
+    const activePlayer = gameState.players[gameState.currentPlayerIndex];
+    if (!activePlayer || activePlayer.id !== authorPlayerId) return; // verification
+
+    if (lobbyMode === 'online_mock') {
+      const cardToPlay = activePlayer.cards.find(c => c.id === cardId);
+      if (!cardToPlay) return;
+
+      if (!isValidPlay(cardToPlay, gameState.activeColor, gameState.activeValue)) {
+        playAlertSound();
+        return;
+      }
+
+      if (cardToPlay.color === 'wild') {
+        setGameState(prev => ({
+          ...prev,
+          wildColorSelectionCard: cardToPlay
+        }));
+      } else {
+        wsRef.current?.send(JSON.stringify({
+          type: 'PLAY_CARD',
+          payload: { cardId }
+        }));
+      }
+      return;
+    }
+
+    const cardToPlay = activePlayer.cards.find(c => c.id === cardId);
+    if (!cardToPlay) return;
+
+    // Perform validation
+    if (!isValidPlay(cardToPlay, gameState.activeColor, gameState.activeValue)) {
+      playAlertSound();
+      return;
+    }
+
+    if (cardToPlay.value === 'nont_dam') {
+      playNontDamSound();
+    } else {
+      playCardSound();
+    }
+
+    // Check if player had exactly 2 cards, meaning they now have 1 card!
+    const goingToHaveUno = activePlayer.cards.length === 2;
+    const isHuman = !activePlayer.isBot;
+
+    // Trigger Challenge window for Human
+    if (goingToHaveUno) {
+      if (isHuman) {
+        if (!hasUserAnnouncedUnoThisTurn) {
+          // Player didn't prepay "UNO". Give them 3 seconds to declare it!
+          setUnoDeclareWindow({
+            active: true,
+            playerId: activePlayer.id,
+            expiresAt: Date.now() + 3200
+          });
+        }
+      } else {
+        // AI always declares UNO instantly (95% of time, with funny style)
+        const saidUno = Math.random() < 0.95;
+        if (saidUno) {
+          declareUno(activePlayer.id, true);
+        }
+      }
+    }
+
+    // Move card from player hand to discard pile
+    const updatedCards = activePlayer.cards.filter(c => c.id !== cardId);
+
+    // Modify active colors/values
+    let nextColor = cardToPlay.color;
+    let nextValue = cardToPlay.value;
+    let turnDirection = gameState.direction;
+    let logMessage = `${activePlayer.name} วางการ์ด [${getCardColorNameThai(cardToPlay.color)} ${getCardValueThai(cardToPlay.value)}]`;
+
+    let step = 1;
+
+    // Handle Special actions
+    if (cardToPlay.value === 'reverse') {
+      turnDirection = (gameState.direction === 1 ? -1 : 1) as 1 | -1;
+      logMessage += ` 🔄 ย้อนทิศทางของเกม!`;
+    }
+
+    // Apply card-play state updates immediately to support wild selections
+    const afterPlayPlayers = gameState.players.map(p => {
+      if (p.id === authorPlayerId) {
+        return { ...p, cards: updatedCards };
+      }
+      return p;
+    });
+
+    const currentDeck = [...gameState.deck];
+    const popCardsFromLocalDeck = (count: number): Card[] => {
+      const drawn: Card[] = [];
+      for (let i = 0; i < count; i++) {
+        const c = currentDeck.pop();
+        if (c) drawn.push(c);
+      }
+      return drawn;
+    };
+
+    // Handle special chaotic effects of NONT-DAM card
+    if (cardToPlay.value === 'nont_dam') {
+      const effectIndex = Math.floor(Math.random() * 4);
+      if (effectIndex === 0) {
+        // Reverse direction AND swap 1 random card with neighbors
+        turnDirection = (gameState.direction === 1 ? -1 : 1) as 1 | -1;
+        
+        const hands = afterPlayPlayers.map(p => [...p.cards]);
+        const swappedHands = hands.map(() => [] as Card[]);
+        
+        for (let i = 0; i < 4; i++) {
+          const neighborIndex = (i + turnDirection + 4) % 4;
+          if (hands[i].length > 0) {
+            const randomCardIndex = Math.floor(Math.random() * hands[i].length);
+            const [swappedCard] = hands[i].splice(randomCardIndex, 1);
+            swappedHands[neighborIndex].push(swappedCard);
+          }
+        }
+        
+        for (let i = 0; i < 4; i++) {
+          afterPlayPlayers[i].cards = [...hands[i], ...swappedHands[i]];
+        }
+        
+        logMessage += ` 🎤 นนท์ดำเปิดไซฟอร์แรปวนลูปมั่วซั่วเสียงหลงลั่นวง! ทิศทางทวนคืนสลับกลับด้านทันที และเสียงแรปสุดเพี้ยนทำเอาผู้เล่นทุกคนสับสน คว้าสะบัดการ์ดสุ่มแลกคนละใบสะเทือนอารีน่า!`;
+      } 
+      else if (effectIndex === 1) {
+        // Toxic Fart draws 3 for next target and skips them (changed to loud ear-splitting rap)
+        const victimIndex = getNextPlayerIndex(gameState.currentPlayerIndex, turnDirection);
+        const nextTargetPlayer = afterPlayPlayers[victimIndex];
+        
+        const drawnCards = popCardsFromLocalDeck(3);
+        afterPlayPlayers[victimIndex].cards = [...nextTargetPlayer.cards, ...drawnCards];
+        
+        logMessage += ` 📢 นนท์ดำกระชากไมค์ขวิด ปล่อยแรปว้ากเสียงแหลมสูงปรี๊ด 180 เดซิเบลใส่หน้า! ${nextTargetPlayer.name} หูอื้ออึึงประสาทเสีย หยิบการ์ดทำที่อุดหูฉุกเฉิน 3 ใบ และข้ามตาไปกุมขมับทันที!`;
+        step = 2;
+        playDrawSound();
+      } 
+      else if (effectIndex === 2) {
+        // Gravity belly draws cards from max card holder and transfers to active player / min card holder
+        let maxCardsCount = -1;
+        let maxPlayerIndex = 0;
+        let minCardsCount = 999;
+        let minPlayerIndex = 0;
+        
+        afterPlayPlayers.forEach((p, idx) => {
+          if (p.cards.length > maxCardsCount) {
+            maxCardsCount = p.cards.length;
+            maxPlayerIndex = idx;
+          }
+          if (p.cards.length < minCardsCount) {
+            minCardsCount = p.cards.length;
+            minPlayerIndex = idx;
+          }
+        });
+        
+        if (maxPlayerIndex !== minPlayerIndex && maxCardsCount >= 2) {
+          const giver = afterPlayPlayers[maxPlayerIndex];
+          const receiver = afterPlayPlayers[minPlayerIndex];
+          
+          const cardsToTransfer = giver.cards.slice(0, 2);
+          giver.cards = giver.cards.slice(2);
+          receiver.cards = [...receiver.cards, ...cardsToTransfer];
+          
+          logMessage += ` 🪙 นนท์ดำแรปอวดรวย ถอดสร้อยทองดงบังปลอมฟาดโชว์เหนือ! แย่งสปอนเซอร์การ์ด 2 ใบจากคุณกุมการ์ดเยอะสุด (${giver.name}) ไปปลอบใจดรอปให้ผู้เล่นที่น้อยเนื้อต่ำใจสุด (${receiver.name}) เพื่อความเท่าเทียมในระบอบฮิปฮอป!`;
+        } else {
+          afterPlayPlayers.forEach((p, idx) => {
+            if (idx !== gameState.currentPlayerIndex) {
+              const drawnCards = popCardsFromLocalDeck(1);
+              p.cards = [...p.cards, ...drawnCards];
+            }
+          });
+          logMessage += ` 🔥 นนท์ดำท้าแรปแบทเทิลปากเสียรอบทิศ! ทุกคนทนความหนวกหูไม่ไหว โดนบังคับจับการ์ดปลอบใจคนละ 1 ใบ ยกเว้นคนแรปว้ากปวดตับ!`;
+        }
+      } 
+      else {
+        // Taunt dance pass 1 card right
+        const hands = afterPlayPlayers.map(p => [...p.cards]);
+        const swappedHands = hands.map(() => [] as Card[]);
+        
+        for (let i = 0; i < 4; i++) {
+          const neighborIndex = (i + 1) % 4;
+          if (hands[i].length > 0) {
+            const randomCardIndex = Math.floor(Math.random() * hands[i].length);
+            const [swappedCard] = hands[i].splice(randomCardIndex, 1);
+            swappedHands[neighborIndex].push(swappedCard);
+          }
+        }
+        
+        for (let i = 0; i < 4; i++) {
+          afterPlayPlayers[i].cards = [...hands[i], ...swappedHands[i]];
+        }
+        
+        logMessage += ` 🕺 นนท์ดำสาดสเต็ปแรปเปอร์สายย่อส่ายพุงกระเทือนระคายสายตา! ผู้เล่นทนความรำคาญไม่ไหว รีบปัดหน้าการ์ดส้วมๆ สุ่มวนสลับเวียนเทียนไปทางขวาคนละ 1 ใบระบายความร้อนใจ!`;
+      }
+    }
+
+    const finishNormalTurn = (specifiedColor: CardColor) => {
+      let nextIndex = gameState.currentPlayerIndex;
+
+      // Handle card actions that affect the NEXT player or game environment!
+      if (cardToPlay.value === 'skip') {
+        if (gameState.flipSide === 'dark') {
+          logMessage += ` 🚫 [ข้ามแม่งทุกคน] มิติกระจกทำงาน! ข้ามตาผู้เล่นคนอื่นทั้งหมดจนสิทธิ์กลับมาที่ ${afterPlayPlayers[gameState.currentPlayerIndex].name} ได้เล่นต่ออีกตาเฉยเลย! ⚡`;
+          step = 4; // Moves 4 steps, which returns to same player in a 4-player game
+        } else {
+          const skippedPlayer = afterPlayPlayers[getNextPlayerIndex(gameState.currentPlayerIndex, turnDirection)];
+          logMessage += ` 🚫 ข้ามตาของ ${skippedPlayer.name}!`;
+          step = 2; // Jump 2 spaces
+        }
+      } 
+      else if (cardToPlay.value === 'draw2') {
+        const victimIndex = getNextPlayerIndex(gameState.currentPlayerIndex, turnDirection);
+        const nextTargetPlayer = afterPlayPlayers[victimIndex];
+        const penaltyCount = gameState.flipSide === 'dark' ? 5 : 2;
+        
+        // Draw penaltyCount cards for them
+        const drawnCards = popCardsFromLocalDeck(penaltyCount);
+        
+        afterPlayPlayers[victimIndex].cards = [...nextTargetPlayer.cards, ...drawnCards];
+        logMessage += ` ➕${penaltyCount} โทษทัณฑ์แดนกระจก! ${nextTargetPlayer.name} โดนจับจั่วรวม ${penaltyCount} ใบและข้ามตาหัวร้อนจัด!`;
+        step = 2; // Jump 2 spaces
+        playDrawSound();
+      }
+      else if (cardToPlay.value === 'draw4') {
+        const victimIndex = getNextPlayerIndex(gameState.currentPlayerIndex, turnDirection);
+        const nextTargetPlayer = afterPlayPlayers[victimIndex];
+        const penaltyCount = gameState.flipSide === 'dark' ? 6 : 4;
+        
+        // Draw penaltyCount cards for them
+        const drawnCards = popCardsFromLocalDeck(penaltyCount);
+        
+        afterPlayPlayers[victimIndex].cards = [...nextTargetPlayer.cards, ...drawnCards];
+        logMessage += ` ☠️ โดนเปลี่ยนสี +${penaltyCount}! ${nextTargetPlayer.name} โดนจ้องตบจั่วเพิ่มเลเวลวิกฤต ${penaltyCount} ใบและถูกข้ามตา!`;
+        step = 2; // Jump 2 spaces
+        playDrawSound();
+      }
+      else if (cardToPlay.value === 'flip') {
+        const nextSide = gameState.flipSide === 'light' ? 'dark' : 'light';
+        logMessage += nextSide === 'dark'
+          ? ` 🌀 ประตูมิติโลกกระจกเปิดออก! พลิกกระดานเข้าสู่ [มิติความมืดเรืองแสงนีออน]! การ์ดทุกใบได้อัปเกรดพลังบวกทวีคูณขั้นสยอง! 🌌👾`
+          : ` 🌀 พลิกประตูมิติกระจกนำทางกลับเข้าสู่ [มิติแสงสว่างดั้งเดิม]! ทุกอย่างกลับคืนสู่สามัญ ☀️🌈`;
+      }
+
+      // Check Winner
+      const winner = afterPlayPlayers.find(p => p.cards.length === 0);
+      if (winner) {
+        // We have a winner!
+        playWinSound();
+        addLog(logMessage, 'play');
+        addLog(`🏆🎉 ${winner.name} การ์ดหมดเกลี้ยงมือ ชงชัยชนะแห่งดวลศึกอารีน่าครั้งนี้!`, 'win');
+        
+        setGameState(prev => ({
+          ...prev,
+          deck: currentDeck,
+          players: afterPlayPlayers,
+          discardPile: [cardToPlay, ...prev.discardPile],
+          status: 'gameover',
+          winnerId: winner.id
+        }));
+        return;
+      }
+
+      // Proceed to normal next turn
+      nextIndex = getNextPlayerIndex(gameState.currentPlayerIndex, turnDirection, step);
+
+      setGameState(prev => {
+        // Replenish deck from discard if low
+        let finalDeck = currentDeck;
+        if (finalDeck.length < 10) {
+          const freshDeck = shuffleDeck(prev.discardPile.slice(1));
+          finalDeck = [...finalDeck, ...freshDeck];
+        }
+
+        const nextFlipSide = cardToPlay.value === 'flip' 
+          ? (prev.flipSide === 'light' ? 'dark' : 'light') 
+          : prev.flipSide;
+
+        return {
+          ...prev,
+          deck: finalDeck,
+          players: afterPlayPlayers,
+          discardPile: [cardToPlay, ...prev.discardPile],
+          activeColor: specifiedColor,
+          activeValue: nextValue,
+          direction: turnDirection,
+          currentPlayerIndex: nextIndex,
+          wildColorSelectionCard: null,
+          flipSide: nextFlipSide
+        };
+      });
+
+      addLog(logMessage, 'play');
+      setHasUserAnnouncedUnoThisTurn(false);
+    };
+
+    // If played a wild or draw4, human must open picker, AI resolves instantly
+    if (cardToPlay.color === 'wild') {
+      if (isHuman) {
+        // Open modal
+        setGameState(prev => ({
+          ...prev,
+          wildColorSelectionCard: cardToPlay,
+          deck: currentDeck,
+          // Just temporarily update hands so UI is clean, modal holds resolution
+          players: afterPlayPlayers
+        }));
+      } else {
+        // AI chooses the color it has the most of!
+        const aiRemainingCards = updatedCards;
+        const colorCounts = { red: 0, blue: 0, green: 0, yellow: 0 };
+        aiRemainingCards.forEach(c => {
+          if (c.color !== 'wild') colorCounts[c.color]++;
+        });
+        
+        let chosenColor: Exclude<CardColor, 'wild'> = 'red';
+        let maxCount = -1;
+        (Object.keys(colorCounts) as Exclude<CardColor, 'wild'>[]).forEach(col => {
+          if (colorCounts[col] > maxCount) {
+            maxCount = colorCounts[col];
+            chosenColor = col;
+          }
+        });
+
+        logMessage += ` 🎨 เปลี่ยนสีหลักให้กลายเป็น [${getCardColorNameThai(chosenColor)}]`;
+        finishNormalTurn(chosenColor);
+      }
+    } else {
+      finishNormalTurn(nextColor);
+    }
+  };
+
+  // Challenge timer check when user forgot UNO
+  const handleChallengeTimeout = () => {
+    if (!unoDeclareWindow) return;
+    const { playerId } = unoDeclareWindow;
+    const player = gameState.players.find(p => p.id === playerId);
+    
+    if (player && player.cards.length === 1 && !gameState.hasSaidUno[playerId]) {
+      // If none of Bots challenged, the timer just fades. But bots challenge 70% of times!
+      const randomChallenge = Math.random() < 0.70;
+      if (randomChallenge) {
+        const botChallenger = gameState.players.filter(p => p.isBot)[Math.floor(Math.random() * 3)];
+        
+        playAlertSound();
+        const { drawnCards, cleanDeck } = drawMultipleCards(gameState.deck, 2);
+        
+        const updatedPlayers = gameState.players.map(p => {
+          if (p.id === playerId) {
+            return { ...p, cards: [...p.cards, ...drawnCards] };
+          }
+          return p;
+        });
+
+        setGameState(prev => ({
+          ...prev,
+          deck: cleanDeck,
+          players: updatedPlayers
+        }));
+
+        addLog(`🚨 ${botChallenger.name} ชี้หน้าจับกุมคุณ! "คุณลืมพูดว่า อีอ้อ!" โดยปรับให้จั่วการ์ดโทษ 2 ใบ!`, 'system');
+      }
+    }
+    setUnoDeclareWindow(null);
+  };
+
+  // Draw multiple cards helper
+  const drawMultipleCards = (sourceDeck: Card[], count: number): { drawnCards: Card[]; cleanDeck: Card[] } => {
+    const drawnCards: Card[] = [];
+    const deckCopy = [...sourceDeck];
+    for (let i = 0; i < count; i++) {
+      const c = deckCopy.pop();
+      if (c) drawnCards.push(c);
+    }
+    return { drawnCards, cleanDeck: deckCopy };
+  };
+
+  // Declare UNO manually
+  const declareUno = (playerId: string, automated = false) => {
+    if (lobbyMode === 'online_mock') {
+      playUnoSound();
+      wsRef.current?.send(JSON.stringify({ type: 'DECLARE_UNO' }));
+      setHasUserAnnouncedUnoThisTurn(true);
+      setUnoButtonGlow(false);
+      return;
+    }
+
+    playUnoSound();
+    
+    // Set declared status
+    setGameState(prev => ({
+      ...prev,
+      hasSaidUno: {
+        ...prev.hasSaidUno,
+        [playerId]: true
+      }
+    }));
+
+    const author = gameState.players.find(p => p.id === playerId);
+    if (!author) return;
+
+    if (automated) {
+      addLog(`🔊 ${author.name} ตะโกนออกไมค์ดังๆ: "อีอ้อ! (การ์ดข้าพเจ้าเหลือใบเดียวเฟ้ยแกล้งสิวะ!)" 🌟`, 'uno');
+    } else {
+      addLog(`✨ คุณได้สติเตือนตัวเอง! ตะโกนลั่นห้อง: "อี อ้อ!!!" 🌟`, 'uno');
+      setHasUserAnnouncedUnoThisTurn(true);
+      setUnoButtonGlow(false);
+      // Cancel active penalty timer if user announced in time
+      if (unoDeclareWindow && unoDeclareWindow.playerId === playerId) {
+        setUnoDeclareWindow(null);
+      }
+    }
+  };
+
+  // Humand Draw Card Action
+  const handleUserDrawCard = () => {
+    const activePlayer = gameState.players[gameState.currentPlayerIndex];
+    if (!activePlayer || activePlayer.isBot || isAiThinking) return;
+
+    if (lobbyMode === 'online_mock') {
+      wsRef.current?.send(JSON.stringify({ type: 'DRAW_CARD' }));
+      return;
+    }
+
+    playDrawSound();
+
+    const deckCopy = [...gameState.deck];
+    const drawnCard = deckCopy.pop();
+
+    if (!drawnCard) {
+      // Reconstitute pile
+      addLog(`⚠️ การ์ดหมดกองจั่ว สับกองการ์ดใหม่!`, 'system');
+      return;
+    }
+
+    const updatedPlayers = gameState.players.map((p, index) => {
+      if (index === gameState.currentPlayerIndex) {
+        return { ...p, cards: [...p.cards, drawnCard] };
+      }
+      return p;
+    });
+
+    const isPlayable = isValidPlay(drawnCard, gameState.activeColor, gameState.activeValue);
+    
+    if (isPlayable) {
+      addLog(`📥 ${activePlayer.name} จั่วได้การ์ด [${getCardColorNameThai(drawnCard.color)} ${getCardValueThai(drawnCard.value)}] และลงต่อได้ทันที!`, 'draw');
+    } else {
+      addLog(`📥 ${activePlayer.name} จั่วได้ระบม และไม่สามารถเล่นใบนั้นได้ ข้ามตาไปคนถัดไป`, 'draw');
+    }
+
+    setGameState(prev => {
+      return {
+        ...prev,
+        deck: deckCopy,
+        players: updatedPlayers,
+        // If not playable, advance current turn, otherwise wait for player to click or decide
+        currentPlayerIndex: isPlayable ? prev.currentPlayerIndex : getNextPlayerIndex(prev.currentPlayerIndex, prev.direction)
+      };
+    });
+  };
+
+  // Bot intelligence logic execution
+  const executeBotTurn = (bot: Player) => {
+    // 1. Separate cards into playable and unplayable
+    const playableCards = bot.cards.filter(c => isValidPlay(c, gameState.activeColor, gameState.activeValue));
+
+    if (playableCards.length > 0) {
+      // Strategize playing: Prioritize Action cards first if another bot has few cards, or prioritize color matches
+      // Simple strategy: prefer colored action cards, then normal cards, save wildcards for defense
+      let selectedCard = playableCards[0];
+
+      // Find an action card of regular colors
+      const coloredActions = playableCards.filter(c => c.color !== 'wild' && ['skip', 'reverse', 'draw2'].includes(c.value));
+      const numbers = playableCards.filter(c => c.color !== 'wild' && !['skip', 'reverse', 'draw2'].includes(c.value));
+      const wilds = playableCards.filter(c => c.color === 'wild');
+
+      if (coloredActions.length > 0) {
+        // play the action card to mess with competitor!
+        selectedCard = coloredActions[Math.floor(Math.random() * coloredActions.length)];
+      } else if (numbers.length > 0) {
+        selectedCard = numbers[Math.floor(Math.random() * numbers.length)];
+      } else if (wilds.length > 0) {
+        selectedCard = wilds[Math.floor(Math.random() * wilds.length)];
+      }
+
+      playCard(selectedCard.id, bot.id);
+    } else {
+      // Draw card
+      const deckCopy = [...gameState.deck];
+      const drawnCard = deckCopy.pop();
+
+      if (!drawnCard) {
+        // Suffle pile
+        return;
+      }
+
+      const updatedBotCards = [...bot.cards, drawnCard];
+      const isPlayable = isValidPlay(drawnCard, gameState.activeColor, gameState.activeValue);
+
+      const modifiedPlayers = gameState.players.map(p => {
+        if (p.id === bot.id) {
+          return { ...p, cards: updatedBotCards };
+        }
+        return p;
+      });
+
+      if (isPlayable) {
+        // Play it immediately
+        setGameState(prev => ({
+          ...prev,
+          deck: deckCopy,
+          players: modifiedPlayers
+        }));
+        // Play the card!
+        setTimeout(() => {
+          playCard(drawnCard.id, bot.id);
+        }, 800);
+      } else {
+        // End of turn, pass
+        const nextIdx = getNextPlayerIndex(gameState.currentPlayerIndex, gameState.direction);
+        setGameState(prev => ({
+          ...prev,
+          deck: deckCopy,
+          players: modifiedPlayers,
+          currentPlayerIndex: nextIdx
+        }));
+        addLog(`📥 ${bot.name} ไม่มีการ์ดเล่น ต้องจั่ว 1 ใบและผ่านตา`, 'draw');
+        playDrawSound();
+      }
+    }
+  };
+
+  // Color selection callback from dialog
+  const handleResolveColorChoice = (selectedColor: Exclude<CardColor, 'wild'>) => {
+    if (!gameState.wildColorSelectionCard) return;
+    
+    if (lobbyMode === 'online_mock') {
+      wsRef.current?.send(JSON.stringify({
+        type: 'PLAY_CARD',
+        payload: {
+          cardId: gameState.wildColorSelectionCard.id,
+          chosenWildColor: selectedColor
+        }
+      }));
+      setGameState(prev => ({
+        ...prev,
+        wildColorSelectionCard: null
+      }));
+      return;
+    }
+
+    const cardPlayed = gameState.wildColorSelectionCard;
+    const activePlayer = gameState.players[gameState.currentPlayerIndex];
+    if (!activePlayer) return;
+
+    // Check if player had exactly 2 cards, and is down to 1
+    const goingToHaveUno = activePlayer.cards.length === 2;
+    if (goingToHaveUno && !hasUserAnnouncedUnoThisTurn) {
+      setUnoDeclareWindow({
+        active: true,
+        playerId: activePlayer.id,
+        expiresAt: Date.now() + 3200
+      });
+    }
+
+    const updatedCards = activePlayer.cards.filter(c => c.id !== cardPlayed.id);
+    let turnDirection = gameState.direction;
+    let logMessage = `${activePlayer.name} เล่นการ์ด [${getCardColorNameThai(cardPlayed.color)} ${getCardValueThai(cardPlayed.value)}] 🎨 เลือกระบุสีถัดไปเป็น [${getCardColorNameThai(selectedColor)}]`;
+
+    const afterPlayPlayers = gameState.players.map(p => {
+      if (p.id === activePlayer.id) {
+        return { ...p, cards: updatedCards };
+      }
+      return p;
+    });
+
+    const currentDeck = [...gameState.deck];
+    let step = 1;
+
+    if (cardPlayed.value === 'draw4') {
+      const victimIndex = getNextPlayerIndex(gameState.currentPlayerIndex, turnDirection);
+      const nextTargetPlayer = afterPlayPlayers[victimIndex];
+      
+      const drawnCards: Card[] = [];
+      for (let i = 0; i < 4; i++) {
+        const c = currentDeck.pop();
+        if (c) drawnCards.push(c);
+      }
+
+      afterPlayPlayers[victimIndex].cards = [...nextTargetPlayer.cards, ...drawnCards];
+      logMessage += ` ☠️ โดน +4! ${nextTargetPlayer.name} ดักหน้าจั่ว 4 ใบหนักๆ และถูกข้ามตา!`;
+      step = 2;
+      playDrawSound();
+    }
+
+    // Winner verification
+    const winner = afterPlayPlayers.find(p => p.cards.length === 0);
+    if (winner) {
+      playWinSound();
+      addLog(logMessage, 'play');
+      addLog(`🏆🎉 ${winner.name} การ์ดหมดเกลี้ยงมือแล้ว! รับชัยชนะอันงดงามไปครอง!`, 'win');
+      
+      setGameState(prev => ({
+        ...prev,
+        deck: currentDeck,
+        players: afterPlayPlayers,
+        discardPile: [cardPlayed, ...prev.discardPile],
+        status: 'gameover',
+        winnerId: winner.id,
+        wildColorSelectionCard: null
+      }));
+      return;
+    }
+
+    const nextIndex = getNextPlayerIndex(gameState.currentPlayerIndex, turnDirection, step);
+
+    setGameState(prev => ({
+      ...prev,
+      deck: currentDeck,
+      players: afterPlayPlayers,
+      discardPile: [cardPlayed, ...prev.discardPile],
+      activeColor: selectedColor,
+      activeValue: cardPlayed.value,
+      currentPlayerIndex: nextIndex,
+      wildColorSelectionCard: null
+    }));
+
+    addLog(logMessage, 'play');
+    setHasUserAnnouncedUnoThisTurn(false);
+  };
+
+  const getDisplayedPlayer = (): Player | undefined => {
+    if (gameState.players.length === 0) return undefined;
+    if (lobbyMode === 'online_mock' && onlinePlayerId) {
+      return gameState.players.find(p => p.id === onlinePlayerId) || gameState.players[0];
+    }
+    const activeP = gameState.players[gameState.currentPlayerIndex];
+    if (activeP && !activeP.isBot) {
+      return activeP;
+    }
+    const firstHuman = gameState.players.find(p => !p.isBot);
+    return firstHuman || gameState.players[0];
+  };
+
+  // Helper to resolve card lists for both local and online privacy-mode players
+  const getPlayerCards = (p: Player) => {
+    if (p.cards && p.cards.length > 0) return p.cards;
+    if (p.cardCount && p.cardCount > 0) {
+      return Array.from({ length: p.cardCount }, (_, i) => ({ id: `dummy-${p.id}-${i}`, color: 'red', value: '0' } as Card));
+    }
+    return [];
+  };
+
+  // Helper to dynamically rotate player positions based on local player index
+  const getPlayerAtPosition = (pos: 'bottom' | 'left' | 'top' | 'right'): Player | undefined => {
+    if (gameState.players.length === 0) return undefined;
+    const localIdx = gameState.players.findIndex(p => p.id === (lobbyMode === 'online_mock' ? onlinePlayerId : 'player-1'));
+    const baseIdx = localIdx !== -1 ? localIdx : 0;
+    
+    let targetIdx = baseIdx;
+    if (pos === 'left') targetIdx = (baseIdx + 1) % 4;
+    else if (pos === 'top') targetIdx = (baseIdx + 2) % 4;
+    else if (pos === 'right') targetIdx = (baseIdx + 3) % 4;
+    
+    return gameState.players[targetIdx];
+  };
+
+  // Helper to determine if it is the local human player's active turn
+  const isLocalPlayerTurn = () => {
+    if (gameState.players.length === 0) return false;
+    if (lobbyMode === 'online_mock') {
+      return gameState.players[gameState.currentPlayerIndex]?.id === onlinePlayerId;
+    }
+    return gameState.currentPlayerIndex === 0; // Local / Classic / VS AI modes use index 0
+  };
+
+  // Cheat or Helper: auto suggest playable cards
+  const getPlayableCardCount = () => {
+    const displayedP = getDisplayedPlayer();
+    const userHand = displayedP?.cards || [];
+    return userHand.filter(c => isValidPlay(c, gameState.activeColor, gameState.activeValue)).length;
+  };
+
+  return (
+    <div className="min-h-screen text-slate-100 font-sans transition-colors duration-500 overflow-x-hidden select-none bg-slate-950 relative">
+      {/* Ambient Background Radial Glow (Immersive UI) */}
+      <div className="absolute inset-0 opacity-20 pointer-events-none bg-[radial-gradient(circle_at_center,_#3b82f6_0%,_transparent_70%)]" />
+
+      {/* Header bar controls */}
+      <header className="sticky top-0 z-30 backdrop-blur-md bg-slate-950/80 border-b border-white/10 px-6 py-4 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="flex -space-x-1 font-black text-2xl tracking-tighter bg-gradient-to-r from-red-500 via-yellow-400 to-blue-500 bg-clip-text text-transparent italic">
+            แหม่มการ์ด
+          </div>
+          <span className="hidden sm:inline bg-blue-500/10 text-blue-400 border border-blue-500/20 font-mono text-[9px] px-2.5 py-0.5 rounded-full uppercase tracking-widest font-bold">
+            IMMERSIVE CARD ARENA
+          </span>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleToggleSound}
+            className="p-2.5 bg-slate-900 border border-white/5 rounded-xl hover:bg-slate-800 text-slate-300 hover:text-white transition-all cursor-pointer shadow-md"
+            title="Sound toggle"
+          >
+            {soundOn ? <Volume2 size={16} /> : <VolumeX size={16} />}
+          </button>
+
+          <button
+            onClick={() => setShowHowTo(true)}
+            className="p-2.5 bg-slate-900 border border-white/5 rounded-xl hover:bg-slate-800 text-slate-300 hover:text-white transition-all cursor-pointer shadow-md"
+            title="How to play"
+          >
+            <HelpCircle size={16} />
+          </button>
+        </div>
+      </header>
+
+      {/* Main Container */}
+      <main className="max-w-7xl mx-auto p-4 flex flex-col items-center justify-center min-h-[calc(100vh-80px)] relative z-10">
+        
+        {/* LANDING / SETUP SCREEN */}
+        {gameState.status === 'setup' && (
+          <LobbyScreen
+            lobbyMode={lobbyMode}
+            lobbySlots={lobbySlots}
+            userName={userName}
+            gameSpeed={gameSpeed}
+            isFlipMode={isFlipMode}
+            cardTheme={cardTheme}
+            showcaseQuoteIndex={showcaseQuoteIndex}
+            onlineRoomCode={onlineRoomCode}
+            onlinePlayerId={onlinePlayerId}
+            onlinePlayers={onlinePlayers}
+            onlineIsHost={onlineIsHost}
+            roomCodeInput={roomCodeInput}
+            onlineError={onlineError}
+            isConnecting={isConnecting}
+            botProfiles={BOT_PROFILES}
+            onlineServerAddr={onlineServerAddr}
+            setOnlineServerAddr={handleSetOnlineServerAddr}
+            setLobbyMode={setLobbyMode}
+            setLobbySlots={setLobbySlots}
+            setUserName={setUserName}
+            setGameSpeed={setGameSpeed}
+            setIsFlipMode={setIsFlipMode}
+            setCardTheme={setCardTheme}
+            setShowcaseQuoteIndex={setShowcaseQuoteIndex}
+            setRoomCodeInput={setRoomCodeInput}
+            setShowHowTo={setShowHowTo}
+            playCardSound={playCardSound}
+            playNontDamSound={playNontDamSound}
+            connectWebSocket={connectWebSocket}
+            disconnectWebSocket={disconnectWebSocket}
+            handleMainStartMatch={handleMainStartMatch}
+            wsRef={wsRef}
+          />
+        )}
+        {/* ACTIVE GAMEBOARD */}
+        {gameState.status === 'playing' && (
+          <div className="w-full grid grid-cols-1 lg:grid-cols-4 gap-6 items-stretch">
+            
+            {/* THE BIG GAME TABLE (3 columns wide on large screen) */}
+            <div className={`lg:col-span-3 flex flex-col justify-between items-center relative rounded-4xl p-8 min-h-[75vh] border-[12px] transition-all duration-1000 overflow-hidden ${
+              gameState.flipSide === 'dark' 
+                ? 'border-[#0f001c] bg-radial from-[#150226] via-[#090012] to-[#010006] shadow-[0_25px_60px_-15px_rgba(168,85,247,0.2),inset_0_0_120px_rgba(0,0,0,0.95)]'
+                : 'border-[#3f1b04] bg-radial from-[#2a6f53] via-[#1d4d3a] to-[#123024] shadow-[0_25px_60px_-15px_rgba(0,0,0,0.9),inset_0_0_80px_rgba(0,0,0,0.6)]'
+            }`}>
+              
+              {/* ROTATING DIRECTION INDICATOR & VELVET GLOW */}
+              <div className="absolute inset-0 rounded-3xl overflow-hidden pointer-events-none flex items-center justify-center">
+                {/* Immersive UI Direction Dials */}
+                <div className="absolute w-[450px] h-[450px] border border-dashed border-white/5 rounded-full flex items-center justify-center">
+                  <div className={`w-[380px] h-[380px] border border-emerald-500/10 rounded-full ${gameState.direction === 1 ? 'animate-spin-slow' : 'animate-spin-slow-reverse'}`}>
+                    <div className="absolute top-0 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-emerald-500/40" />
+                    <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-emerald-500/40" />
+                  </div>
+                </div>
+                {/* Velvet central light shadow */}
+                <div className="absolute w-[380px] h-[380px] rounded-full bg-emerald-500/5 mix-blend-color-dodge blur-3xl" />
+              </div>
+
+              {/* TOP PLAYER */}
+              {(() => {
+                const topPlayer = getPlayerAtPosition('top');
+                const topCards = topPlayer ? getPlayerCards(topPlayer) : [];
+                const topActive = topPlayer && gameState.players[gameState.currentPlayerIndex]?.id === topPlayer.id;
+                return (
+                  <div className="z-10 text-center">
+                    {topPlayer && (
+                      <PlayerPanel 
+                        player={topPlayer} 
+                        isActive={!!topActive} 
+                        isThinking={isAiThinking && !!topActive}
+                        bubbleText={thinkingBubble}
+                        isWinner={false}
+                      />
+                    )}
+                    
+                    {/* Small compact layout for Top Player's hand */}
+                    <div className="flex gap-1 justify-center mt-3">
+                      {topCards.map((c, i) => (
+                        <div 
+                          key={c.id} 
+                          className="w-[22px] h-9 bg-red-700 border border-red-600/50 rounded flex items-center justify-center text-[9px] font-black italic text-white shadow-lg transform origin-bottom"
+                          style={{ 
+                            transform: `rotate(${(i - (topCards.length - 1)/2) * 4}deg) translateY(${Math.abs(i - (topCards.length - 1)/2) * 1}px)`,
+                            zIndex: i 
+                          }}
+                        >
+                          U
+                        </div>
+                      ))}
+                      {topPlayer && topCards.length === 0 && (
+                        <span className="text-slate-500 text-xs">ไม่มีการ์ด</span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* MIDDLE ROW: BOTS 1 & 3 & DRAW/DISCARD AREA */}
+              <div className="w-full flex items-center justify-between gap-4 my-auto z-10 py-6">
+                
+                {/* LEFT PLAYER */}
+                {(() => {
+                  const leftPlayer = getPlayerAtPosition('left');
+                  const leftCards = leftPlayer ? getPlayerCards(leftPlayer) : [];
+                  const leftActive = leftPlayer && gameState.players[gameState.currentPlayerIndex]?.id === leftPlayer.id;
+                  return (
+                    <div className="w-32 flex flex-col items-center text-center">
+                      {leftPlayer && (
+                        <PlayerPanel 
+                          player={leftPlayer} 
+                          isActive={!!leftActive} 
+                          isThinking={isAiThinking && !!leftActive}
+                          bubbleText={thinkingBubble}
+                          isWinner={false}
+                        />
+                      )}
+
+                      {/* Fan of cards vertical / compact */}
+                      <div className="relative h-16 w-16 mt-3 flex items-center justify-center">
+                        {leftCards.map((c, i) => (
+                          <div 
+                            key={c.id}
+                            className="absolute w-[22px] h-9 bg-red-700 border border-red-600/50 rounded flex items-center justify-center text-[8px] font-black italic text-white shadow-md origin-bottom"
+                            style={{ 
+                              transform: `rotate(${(i - (leftCards.length - 1)/2) * 14}deg) translateX(${(i - (leftCards.length - 1)/2) * 3}px)`,
+                              zIndex: i 
+                            }}
+                          >
+                            U
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* BOARD CENTER 3D TRAY / DISH (จานแนว 3D สำหรับวางไพ่) */}
+                <div className="flex-1 flex items-center justify-center py-6 my-auto w-full z-10" style={{ perspective: '1200px' }}>
+                  <div 
+                    className={`relative w-full max-w-[530px] rounded-[50px] border-[6px] transition-all duration-1000 flex flex-col sm:flex-row items-center justify-center gap-8 sm:gap-14 px-8 py-10 ${
+                      gameState.flipSide === 'dark'
+                        ? 'border-[#7c3aed] bg-gradient-to-b from-[#120024] via-[#21003d] to-[#0a0014]'
+                        : 'border-[#d97706] bg-gradient-to-b from-[#451a03] via-[#78350f] to-[#2d1002]'
+                    }`}
+                    style={{ 
+                      transform: 'rotateX(22deg) rotateY(0deg) translateZ(0px)',
+                      transformStyle: 'preserve-3d',
+                      boxShadow: gameState.flipSide === 'dark'
+                        ? 'inset 0 10px 40px rgba(0,0,0,0.95), 0 25px 65px rgba(0,0,0,0.85), 0 0 35px rgba(124,58,237,0.35)'
+                        : 'inset 0 10px 40px rgba(0,0,0,0.95), 0 25px 65px rgba(0,0,0,0.85), 0 0 35px rgba(217,119,6,0.15)'
+                    }}
+                  >
+                    {/* Inner felt recess of the 3D disk */}
+                    <div className={`absolute inset-2.5 rounded-[42px] border-2 pointer-events-none transition-all duration-1000 ${
+                      gameState.flipSide === 'dark' 
+                        ? 'bg-gradient-to-b from-[#0a0114] to-[#120124] border-[#22023d]'
+                        : 'bg-gradient-to-b from-[#0a231c] to-[#123026] border-[#1c0a00]'
+                    }`} style={{ boxShadow: 'inset 0 10px 24px rgba(0,0,0,0.9)' }} />
+
+                    {/* Elite golden decorative motifs representing traditional luxury card play */}
+                    <span className={`absolute top-3 left-8 text-lg select-none font-serif ${gameState.flipSide === 'dark' ? 'text-purple-500/30' : 'text-amber-500/30'}`}>✥</span>
+                    <span className={`absolute top-3 right-8 text-lg select-none font-serif ${gameState.flipSide === 'dark' ? 'text-purple-500/30' : 'text-amber-500/30'}`}>✥</span>
+                    <span className={`absolute bottom-3 left-8 text-lg select-none font-serif ${gameState.flipSide === 'dark' ? 'text-purple-500/30' : 'text-amber-500/30'}`}>✥</span>
+                    <span className={`absolute bottom-3 right-8 text-lg select-none font-serif ${gameState.flipSide === 'dark' ? 'text-purple-500/30' : 'text-amber-500/30'}`}>✥</span>
+
+                    {/* DRAW PILE */}
+                    <div className="flex flex-col items-center gap-3.5 z-10" style={{ transform: 'translateZ(20px)' }}>
+                      <span className="text-[10px] font-black text-amber-200/90 tracking-wider font-mono uppercase bg-slate-950/70 border border-white/5 px-2 py-0.5 rounded shadow-md">
+                        กองการ์ดจั่ว ({gameState.deck.length})
+                      </span>
+                      
+                      <div className="relative group">
+                        {/* Interactive click to draw card */}
+                        <button
+                          onClick={handleUserDrawCard}
+                          disabled={!isLocalPlayerTurn() || isAiThinking}
+                          className={`group relative focus:outline-none transition-all active:scale-95 cursor-pointer block ${isLocalPlayerTurn() && !isAiThinking ? 'hover:scale-105' : ''}`}
+                        >
+                          {/* 3D stacked layout under draw card */}
+                          <div className="absolute -bottom-1.5 -right-1.5 w-24 h-36 md:w-28 md:h-42 bg-slate-950 border border-slate-800/80 rounded-2xl shadow -z-20 transform translate-x-1.5 translate-y-1.5 opacity-90" />
+                          <div className="absolute -bottom-0.5 -right-0.5 w-24 h-36 md:w-28 md:h-42 bg-slate-900 border border-slate-800/90 rounded-2xl shadow -z-10 transform translate-x-0.5 translate-y-0.5" />
+                          
+                          <UnoCard 
+                            card={{ id: 'fake-draw', color: 'red', value: '0' }} 
+                            isBack 
+                            hoverable={isLocalPlayerTurn() && !isAiThinking}
+                            playable={isLocalPlayerTurn() && !isAiThinking} 
+                            size="md"
+                            flipSide={gameState.flipSide}
+                            theme={cardTheme}
+                          />
+                        </button>
+
+                        {/* Your Turn guidance overlay */}
+                        {isLocalPlayerTurn() && !isAiThinking && (
+                          <div className="absolute -top-3.5 -right-3.5 bg-red-600 text-white font-black px-2.5 py-1 text-[9px] tracking-widest rounded-full shadow-lg border border-white/20 animate-bounce">
+                            DRAW CARD!
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* DISCARD PILE */}
+                    <div className="flex flex-col items-center gap-3.5 z-10" style={{ transform: 'translateZ(20px)' }}>
+                      <span className="text-[10px] font-black text-amber-200/90 tracking-wider font-mono uppercase bg-slate-950/70 border border-white/5 px-2 py-0.5 rounded shadow-sm justify-center flex items-center gap-1.5">
+                        การ์ดบนโต๊ะ 
+                        <span className="flex items-center gap-1 bg-white/10 border border-white/5 px-1.5 py-0.5 rounded-full text-zinc-300 font-bold font-mono text-[9px]">
+                          {gameState.direction === 1 ? <TrendingUp size={9} className="text-emerald-400" /> : <TrendingDown size={9} className="text-yellow-400" />}
+                          {gameState.direction === 1 ? "ตามเข็ม" : "ทวนเข็ม"}
+                        </span>
+                      </span>
+
+                      <div className="relative">
+                        {gameState.discardPile.length > 0 ? (
+                          <div className="relative">
+                            {/* Active card matching layout border glow */}
+                            <div className={`p-1 rounded-2xl transition-all duration-500 ${
+                              gameState.activeColor === 'red' ? 'shadow-[0_0_35px_rgba(239,68,68,0.55)]' :
+                              gameState.activeColor === 'blue' ? 'shadow-[0_0_35px_rgba(34,211,238,0.55)]' :
+                              gameState.activeColor === 'green' ? 'shadow-[0_0_35px_rgba(16,185,129,0.55)]' :
+                              gameState.activeColor === 'yellow' ? 'shadow-[0_0_35px_rgba(234,179,8,0.55)]' :
+                              'shadow-[0_0_35px_rgba(255,255,255,0.25)]'
+                            }`}>
+                              <UnoCard 
+                                card={gameState.discardPile[0]} 
+                                hoverable={false} 
+                                isCurrentPlayMarker
+                                size="md"
+                                flipSide={gameState.flipSide}
+                                theme={cardTheme}
+                              />
+                            </div>
+
+                            {/* Highlight Active Match Rules */}
+                            <div className={`absolute -bottom-3 -right-3 rounded-full border border-white/10 bg-gradient-to-br ${getCardColorClass(gameState.activeColor)} text-white text-[9px] uppercase font-black px-2.5 py-1 tracking-widest shadow-xl`}>
+                              {getCardColorNameThai(gameState.activeColor)} : {gameState.activeValue}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="w-24 h-36 md:w-28 md:h-42 bg-slate-950 border border-dashed border-slate-800/80 rounded-2xl flex items-center justify-center text-slate-500 text-xs font-mono">
+                            EMPTY PILE
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                  </div>
+                </div>
+
+                {/* RIGHT PLAYER */}
+                {(() => {
+                  const rightPlayer = getPlayerAtPosition('right');
+                  const rightCards = rightPlayer ? getPlayerCards(rightPlayer) : [];
+                  const rightActive = rightPlayer && gameState.players[gameState.currentPlayerIndex]?.id === rightPlayer.id;
+                  return (
+                    <div className="w-32 flex flex-col items-center text-center">
+                      {rightPlayer && (
+                        <PlayerPanel 
+                          player={rightPlayer} 
+                          isActive={!!rightActive} 
+                          isThinking={isAiThinking && !!rightActive}
+                          bubbleText={thinkingBubble}
+                          isWinner={false}
+                        />
+                      )}
+
+                      {/* Fan of cards vertical / compact */}
+                      <div className="relative h-16 w-16 mt-3 flex items-center justify-center">
+                        {rightCards.map((c, i) => (
+                          <div 
+                            key={c.id}
+                            className="absolute w-[22px] h-9 bg-red-700 border border-red-600/50 rounded flex items-center justify-center text-[8px] font-black italic text-white shadow-md origin-bottom"
+                            style={{ 
+                              transform: `rotate(${(i - (rightCards.length - 1)/2) * -14}deg) translateX(${(i - (rightCards.length - 1)/2) * -3}px)`,
+                              zIndex: i 
+                            }}
+                          >
+                            U
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
+
+              </div>
+
+              {/* BOTTOM: YOU (Player 👑) & CONTROLS */}
+              <div className="w-full z-10 pt-4 border-t border-white/10 space-y-4">
+                
+                {/* Immersive Dashboard Header */}
+                {(() => {
+                  const displayedP = getDisplayedPlayer();
+                  const isItsTurn = displayedP ? (gameState.players[gameState.currentPlayerIndex]?.id === displayedP.id) : false;
+                  const playableHand = displayedP?.cards || [];
+                  return (
+                    <>
+                      <div className="flex items-center justify-between flex-wrap gap-4 px-2">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-2.5 h-2.5 rounded-full ${isItsTurn && !isAiThinking ? 'bg-green-500 animate-pulse shadow-[0_0_8px_#22c55e]' : 'bg-slate-600'}`} />
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] uppercase font-black tracking-widest text-slate-400 font-mono">
+                                {isItsTurn && !isAiThinking ? 'ตาของคุณเล่น' : 'รอบางแรปเปอร์สับเปลี่ยน...'}
+                              </span>
+                            </div>
+                            <h3 className="font-black text-base text-white tracking-tight flex items-center gap-1.5">
+                              <span className="text-xl">{displayedP?.avatar}</span> {displayedP?.name}
+                            </h3>
+                          </div>
+                        </div>
+
+                        {/* Actions Bar (Declare UNO!) */}
+                        <div className="flex items-center gap-4">
+                          {unoDeclareWindow && displayedP && unoDeclareWindow.playerId === displayedP.id && (
+                            <motion.div 
+                              animate={{ scale: [1, 1.05, 1] }}
+                              transition={{ repeat: Infinity, duration: 0.5 }}
+                              className="bg-red-600 text-white font-black p-1.5 rounded-lg text-[9px] flex items-center gap-1.5 px-3 uppercase tracking-widest animate-pulse shadow-lg shadow-red-600/30 border border-white/10"
+                            >
+                              <AlertTriangle size={12} /> กด "อีอ้อ!" ด่วน!
+                            </motion.div>
+                          )}
+
+                          <motion.button
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={() => declareUno(displayedP?.id || 'player-1')}
+                            className={`
+                              px-8 py-2.5 text-white font-black italic tracking-tighter text-xl rounded-full border border-white/20 shadow-lg uppercase transition-all duration-300 cursor-pointer
+                              ${unoButtonGlow || (unoDeclareWindow && displayedP && unoDeclareWindow.playerId === displayedP.id)
+                                ? 'bg-red-600 hover:bg-red-500 shadow-red-600/50 ring-4 ring-yellow-400 ring-offset-2 ring-offset-slate-950 animate-pulse' 
+                                : 'bg-slate-800 text-slate-400 border-white/5 hover:bg-slate-700 hover:text-white'}
+                            `}
+                          >
+                            อีอ้อ!
+                          </motion.button>
+                        </div>
+
+                        {/* Color Focus Ring Indicators */}
+                        <div className="text-right hidden sm:block">
+                          <span className="block text-[10px] uppercase tracking-widest text-slate-400 font-bold font-mono">Color Focus</span>
+                          <div className="flex gap-1.5 mt-1.5 justify-end">
+                            <div className={`w-3 h-3 rounded-full bg-red-500 transition-all duration-300 ${gameState.activeColor === 'red' ? 'shadow-[0_0_10px_#ef4444] scale-125 opacity-100 ring-2 ring-white/30' : 'opacity-25'}`} />
+                            <div className={`w-3 h-3 rounded-full bg-blue-500 transition-all duration-300 ${gameState.activeColor === 'blue' ? 'shadow-[0_0_10px_#3b82f6] scale-125 opacity-100 ring-2 ring-white/30' : 'opacity-25'}`} />
+                            <div className={`w-3 h-3 rounded-full bg-emerald-500 transition-all duration-300 ${gameState.activeColor === 'green' ? 'shadow-[0_0_10px_#10b981] scale-125 opacity-100 ring-2 ring-white/30' : 'opacity-25'}`} />
+                            <div className={`w-3 h-3 rounded-full bg-amber-400 transition-all duration-300 ${gameState.activeColor === 'yellow' ? 'shadow-[0_0_10px_#fbbf24] scale-125 opacity-100 ring-2 ring-white/30' : 'opacity-25'}`} />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* THE HUMAN HAND OF CARDS */}
+                      <div className="w-full bg-slate-900/30 backdrop-blur-md p-5 rounded-2xl border border-white/5 min-h-[145px] flex items-center justify-center">
+                        <div className="flex gap-3 overflow-x-auto py-3 px-1 scrollbar-thin justify-start w-full max-w-full">
+                          {playableHand.map((card) => {
+                            const playable = isItsTurn && !isAiThinking && isValidPlay(card, gameState.activeColor, gameState.activeValue);
+                            return (
+                              <div key={card.id} className="flex-shrink-0 transition-transform hover:-translate-y-2.5 duration-300">
+                                <UnoCard
+                                  card={card}
+                                  playable={playable}
+                                  onClick={() => playCard(card.id, displayedP!.id)}
+                                  size="md"
+                                  flipSide={gameState.flipSide}
+                                  theme={cardTheme}
+                                />
+                              </div>
+                            );
+                          })}
+                          {playableHand.length === 0 && (
+                            <span className="text-slate-500 text-xs text-center mx-auto">ยินดีด้วยคุณสยบเกมสำมะเรดแล้ว!</span>
+                          )}
+                        </div>
+                      </div>
+                    </>
+                  );
+                })()}
+
+              </div>
+
+            </div>
+
+            {/* SIDE PANEL: COOP GAME LOGS & SCORESTATS (1 column wide) */}
+            <div className="flex flex-col justify-between bg-stone-900/40 border border-white/5 p-4 rounded-3xl h-[70vh] lg:h-[75vh] z-20">
+              
+              {/* Turn cues */}
+              <div className="pb-3 border-b border-white/5">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-bold text-xs text-stone-300 flex items-center gap-1 font-mono uppercase tracking-wider">
+                    <Compass size={14} className="text-amber-400" /> สถานะเวลานี้
+                  </h3>
+                  <div className="text-[10px] bg-amber-500/10 text-amber-300 border border-amber-500/20 px-2 py-0.5 rounded-full font-bold">
+                    ตาที่ {gameState.logs.filter(l => l.type === 'play').length + 1}
+                  </div>
+                </div>
+
+                {/* Who's Turn indicator */}
+                <div className="bg-stone-950/80 border border-white/5 rounded-2xl p-3 flex items-center gap-3">
+                  <div className="relative">
+                    <div className="w-9 h-9 rounded-full bg-slate-800 flex items-center justify-center text-lg border border-yellow-400 shadow">
+                      {gameState.players[gameState.currentPlayerIndex]?.avatar || '👤'}
+                    </div>
+                    {isAiThinking && (
+                      <span className="absolute -bottom-1 -right-1 w-3 h-3 rounded-full bg-amber-400 border border-stone-950 flex items-center justify-center animate-ping text-[6px]">
+                        ●
+                      </span>
+                    )}
+                  </div>
+                  
+                  <div className="flex-1 min-w-0">
+                    <span className="text-[9px] text-amber-400 uppercase tracking-widest font-mono block">ผู้เล่นตาปัจจุบัน</span>
+                    <span className="text-xs font-black text-white block truncate">
+                      {gameState.players[gameState.currentPlayerIndex]?.name || 'กำลังรอ...'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* LIVE SCROLLING LOGS */}
+              <div className="flex-1 overflow-y-auto my-3 pr-1 space-y-2 max-h-[300px] lg:max-h-none scrollbar-thin">
+                <div className="flex items-center gap-1 text-xs font-medium text-stone-400 mb-2 font-mono uppercase">
+                  <History size={12} /> เครื่องบันทึกการ์ด (Match Log)
+                </div>
+                
+                {gameState.logs.length === 0 && (
+                  <div className="text-center text-xs text-stone-600 py-10">
+                    ยังไม่มีความเคลื่อนไหว
+                  </div>
+                )}
+
+                {gameState.logs.map((log) => {
+                  let badgeBg = 'bg-stone-800 text-stone-300';
+                  if (log.type === 'play') badgeBg = 'bg-blue-500/10 text-blue-400 border border-blue-500/20';
+                  if (log.type === 'draw') badgeBg = 'bg-yellow-500/10 text-yellow-500/90 border border-yellow-500/20';
+                  if (log.type === 'uno') badgeBg = 'bg-red-500/10 text-red-500 font-extrabold border border-red-500/20 animate-pulse';
+                  if (log.type === 'win') badgeBg = 'bg-green-500/10 text-green-400 font-extrabold border border-green-500/20';
+
+                  return (
+                    <div key={log.id} className="text-xs bg-stone-950/40 p-2.5 rounded-xl border border-white/5 space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded-full ${badgeBg} uppercase font-mono`}>
+                          {log.type}
+                        </span>
+                        <span className="text-[9px] text-stone-500 font-mono">{log.timestamp}</span>
+                      </div>
+                      <p className="text-stone-300 text-xs font-medium leading-relaxed">{log.message}</p>
+                    </div>
+                  );
+                })}
+                <div ref={logsEndRef} />
+              </div>
+
+              {/* RESET / PANIC OPTIONS */}
+              <div className="pt-3 border-t border-white/5 grid grid-cols-2 gap-2">
+                <button
+                  onClick={handleResetOrReplay}
+                  className="py-2 px-3 rounded-xl bg-stone-900 border border-stone-800 hover:bg-stone-800 text-stone-300 hover:text-white font-bold text-xs flex items-center justify-center gap-1 transition-colors cursor-pointer"
+                >
+                  <RotateCcw size={12} /> รีเซ็ตเกมใหม่
+                </button>
+
+                <button
+                  onClick={handleResignOrQuit}
+                  className="py-2 px-3 rounded-xl bg-red-950/20 border border-red-900/30 hover:bg-red-900/20 text-red-400 hover:text-red-300 font-bold text-xs flex items-center justify-center gap-1 transition-colors cursor-pointer"
+                >
+                  <AlertTriangle size={12} /> ยอมแพ้เกม
+                </button>
+              </div>
+
+            </div>
+
+          </div>
+        )}
+
+        {/* GAMEOVER SCREEN */}
+        {gameState.status === 'gameover' && (
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="w-full max-w-xl text-center bg-slate-900/40 backdrop-blur-md border border-white/10 p-8 md:p-12 rounded-3xl shadow-[0_0_50px_rgba(59,130,246,0.2)] relative overflow-hidden"
+          >
+            <div className="absolute -top-10 -right-10 w-32 h-32 bg-blue-500/10 rounded-full blur-2xl pointer-events-none" />
+            
+            <div className="text-5xl md:text-6xl mb-4 animate-bounce">🏆</div>
+            
+            <h1 className="text-3xl md:text-4xl font-extrabold text-white tracking-tight mb-2 uppercase">
+              สิ้นสุดการประลองการ์ด!
+            </h1>
+
+            {gameState.winnerId === 'human-player' ? (
+              <div className="my-6 p-6 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 shadow-lg">
+                <h2 className="text-2xl font-black text-emerald-400 mb-1">🎉 คุณเป็นผู้ชนะ! 🎉</h2>
+                <p className="text-slate-300 text-sm leading-relaxed font-sans">
+                  สุดยอดอย่างยิ่ง! ลบการ์ดหมดบอร์ดในเวลารวดเร็ว เอาชนะบอททั้ง 3 ตัวไปได้อย่างขาวสะอาด
+                </p>
+              </div>
+            ) : (
+              <div className="my-6 p-6 rounded-2xl bg-red-500/10 border border-red-500/35 shadow-lg">
+                <h2 className="text-xl font-black text-red-400 mb-1">
+                  ผู้ชนะคือ {gameState.players.find(p => p.id === gameState.winnerId)?.name || 'คู่แข่ง'}
+                </h2>
+                <p className="text-slate-300 text-sm leading-relaxed font-sans">
+                  ไม่เป็นไรนะ! การ์ดมีขึ้นมีลง ไว้แก้ตัวใหม่ในศึกถัดไป บอทเก่งมากต้องกุมขมับเลยทีเดียว
+                </p>
+              </div>
+            )}
+
+            {/* Leaderboard/stats preview */}
+            <div className="space-y-2 mb-8 font-sans text-left">
+              <span className="text-center text-xs font-bold text-slate-400 uppercase tracking-widest font-mono block mb-4">
+                จำนวนการ์ดคงเหลือของแถวคู่แข่ง 📊
+              </span>
+              <div className="space-y-2.5">
+                {gameState.players.map((p) => (
+                  <div key={p.id} className="flex items-center justify-between bg-slate-950/80 p-3.5 rounded-xl border border-white/5">
+                    <div className="flex items-center gap-2 text-xs">
+                      <span className="text-lg">{p.avatar}</span>
+                      <span className="font-extrabold text-white">{p.name} {p.id === 'human-player' ? '(คุณ)' : ''}</span>
+                    </div>
+                    
+                    <div className="flex items-center gap-4">
+                      <span className="text-xs text-slate-400 font-mono font-bold">{p.cards.length} ใบ</span>
+                      <div className="w-24 bg-slate-900 h-2 rounded-full overflow-hidden border border-white/5">
+                        <div 
+                          className="bg-gradient-to-r from-blue-500 to-indigo-500 h-full transition-all duration-500" 
+                          style={{ width: `${Math.max(5, 100 - p.cards.length * 10)}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <button
+              onClick={handleReplayGame}
+              className="w-full bg-blue-600 hover:bg-blue-500 text-white font-black py-4 rounded-xl text-base flex items-center justify-center gap-2 shadow-lg hover:shadow-[0_0_20px_rgba(59,130,246,0.25)] transition cursor-pointer"
+            >
+              <RotateCcw size={16} /> เริ่มเล่นตาถัดไปทันที (Replay)
+            </button>
+
+            <button
+              onClick={handleBackToHome}
+              className="mt-3 w-full bg-slate-950/80 border border-white/10 hover:bg-slate-800 text-slate-400 hover:text-white font-medium py-3 rounded-xl text-sm transition cursor-pointer"
+            >
+              กลับสู่หน้าโฮม
+            </button>
+          </motion.div>
+        )}
+
+      </main>
+
+      {/* FOOTER */}
+      <footer className="py-6 text-center border-t border-white/5 text-xs text-slate-500 font-mono">
+        © 2026 แหม่มการ์ด Arena • ดีไซน์กะทัดรัด สบายตา มิติใหม่ของปัญญาประดิษฐ์
+      </footer>
+
+      {/* COLOR PICKER OVERLAY MODAL */}
+      <ColorPickerModal 
+        isOpen={gameState.wildColorSelectionCard !== null}
+        onSelect={handleResolveColorChoice}
+      />
+
+      {/* HOW TO MANUAL OVERLAY MODAL */}
+      <AnimatePresence>
+        {showHowTo && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowHowTo(false)}
+              className="absolute inset-0 bg-slate-950/80 backdrop-blur-md"
+            />
+
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="relative w-full max-w-lg bg-slate-900/90 backdrop-blur-md border border-white/10 rounded-3xl p-6 md:p-8 z-10 max-h-[80vh] overflow-y-auto shadow-2xl"
+            >
+              <h2 className="text-xl md:text-2xl font-black text-white mb-4 flex items-center gap-2">
+                📖 คู่มือเรียนรู้วิธีการเล่น แหม่มการ์ด 
+              </h2>
+
+              <div className="space-y-4 text-xs md:text-sm text-stone-300 leading-relaxed font-sans">
+                <div>
+                  <h3 className="font-bold text-amber-400 text-sm mb-1.5 flex items-center gap-1">🟢 วิธีจับคู่เล่นแบบง่าย</h3>
+                  <p>
+                    ในแต่ละตา คุณต้องวางการ์ดให้ตรงกับการ์ดล่าสุดบนโต๊ะ โดยยึดหลัก <span className="text-white font-bold">"สีเดียวกัน"</span> หรือ <span className="text-white font-bold">"มีสัญลักษณ์คู่เหมือนกัน"</span> (เช่น เลขตรงกัน หรือเป็น Skip เหมือนกัน)
+                  </p>
+                </div>
+
+                <div>
+                  <h3 className="font-bold text-amber-400 text-sm mb-1.5 flex items-center gap-1">⚡️ หน้าที่ของคู่การ์ดพิเศษ</h3>
+                  <ul className="list-disc list-inside space-y-1 pl-1 text-stone-400 font-sans">
+                    <li><strong className="text-white">ข้ามตา (Skip):</strong> ข้ามผู้เล่นลำดับต่อไป</li>
+                    <li><strong className="text-white">ย้อนศร (Reverse):</strong> เดินเรื่องทิศกลับทาง (ตามเข็ม/ทวนเข็ม)</li>
+                    <li><strong className="text-white">หยิบสอง (+2):</strong> คนถัดไปจั่ว 2 ใบ และข้ามตาเล่น</li>
+                    <li><strong className="text-white">เปลี่ยนสี (Wild):</strong> เลือกสีใดก็ได้เป็นตัวนำรอบถัดไป</li>
+                    <li><strong className="text-white">เปลี่ยนสี+สี่ (Wild Draw +4):</strong> เลือกสีใหม่ และถล่มคนถัดไปจั่ว 4 ใบพร้อมข้ามตา!</li>
+                    <li><span className="text-purple-400 font-black">นนท์ดำซูเปอร์ป่วน (Legendary Nont-Dam):</span> เปลี่ยนสี และสุ่มโจมตีกวนโอ๊ยด้วยเสียงแรปร้ายกาจ! (แรปเสียงหลงหมุนเปลี่ยนทิศสลับการ์ดรอบข้าง, สาดแรปว้าก 180 เดซิเบลจนหูอื้อจั่ว 3 ข้ามตา, หรือแรปสลายมิตรคาร์ดสุ่มเวียนรอบวง)</li>
+                  </ul>
+                </div>
+
+                <div className="p-3 bg-red-950/20 border border-red-900/30 rounded-2xl flex gap-2">
+                  <div className="text-base">📢</div>
+                  <div className="space-y-1">
+                    <strong className="text-white">กฎเหล็ก "อีอ้อ!" (Ee-Aor!)</strong>
+                    <p className="text-stone-400 text-xs">
+                      เมื่อคุณกำลังจะเหลือการ์ดเพียงใบเดียวในมือ ต้องกดปุ่มประกาศ "อีอ้อ!" ทันที คาสิโนจะมีเวลากดท้าทายคุณ 3 วินาที หากลืมกดโดนปรับจั่ว 2 ใบฟรี!
+                    </p>
+                  </div>
+                </div>
+
+                <p className="text-[11px] text-stone-500 text-center uppercase font-mono pt-4 border-t border-white/5">
+                  กดมุมภาพหรือพื้นที่ทับหลังเพื่อกลับสู่เกม
+                </p>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* PASS & PLAY DEVICE REVEAL SECURITY COVERS */}
+      {passCoverActivePlayer && (
+        <div className="fixed inset-0 bg-slate-950/98 backdrop-blur-xl z-50 flex flex-col items-center justify-center p-6 text-center select-none">
+          <div className="max-w-md p-8 md:p-10 rounded-3xl bg-slate-900 border border-amber-500/35 shadow-[0_0_50px_rgba(245,158,11,0.15)] space-y-6 relative overflow-hidden">
+            <div className="absolute -top-10 -left-10 w-32 h-32 bg-amber-500/10 rounded-full blur-2xl pointer-events-none" />
+            
+            <div className="text-6xl animate-bounce">📱</div>
+            
+            <h1 className="text-2xl md:text-3xl font-black text-amber-400 uppercase tracking-tight">
+              ส่งอุปกรณ์ให้แรปเปอร์คนถัดไป!
+            </h1>
+            
+            <div className="space-y-2 font-sans text-slate-300">
+              <p className="text-sm">
+                รบกวนยื่นอุปกรณ์เครื่องนี้ทางกายภาพให้แก่:
+              </p>
+              <div className="text-xl md:text-2xl font-black text-white bg-slate-950/80 p-4 border border-white/5 rounded-2xl flex items-center justify-center gap-2">
+                <span>{passCoverActivePlayer.avatar}</span>
+                <span className="text-yellow-400">{passCoverActivePlayer.name}</span>
+              </div>
+              <p className="text-xs text-rose-400 font-extrabold animate-pulse pt-2 leading-relaxed">
+                ⚠️ ผู้ร่วมสังเวียนท่านอื่นห้ามแอบเพ่งสายตาอย่างเด็ดขาด!
+              </p>
+            </div>
+
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => {
+                playCardSound();
+                setPassCoverActivePlayer(null);
+              }}
+              className="w-full py-4 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 text-slate-950 text-xs md:text-sm font-black rounded-xl cursor-pointer shadow-lg hover:shadow-amber-500/25 transition duration-300 flex items-center justify-center gap-2"
+            >
+              👁️ คลิกที่นี่เพื่อยืนยันสิทธิ์แล้วรับอุปกรณ์มาเล่น!
+            </motion.button>
+          </div>
+        </div>
+      )}
+
+    </div>
+  );
+}
+
+// Compact Sub-component to minimize token logic inside App
+interface PlayerPanelProps {
+  player: Player;
+  isActive: boolean;
+  isThinking: boolean;
+  bubbleText: string | null;
+  isWinner: boolean;
+}
+
+const PlayerPanel: React.FC<PlayerPanelProps> = ({ player, isActive, isThinking, bubbleText, isWinner }) => {
+  if (!player) return null;
+
+  return (
+    <div className="relative flex flex-col items-center">
+      
+      {/* Bot Thinking Speech bubble */}
+      <AnimatePresence>
+        {isThinking && bubbleText && (
+          <motion.div 
+            initial={{ opacity: 0, y: 10, scale: 0.8 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            className="absolute -top-14 bg-slate-950/95 border border-white/10 rounded-xl p-2.5 shadow-[0_4px_12px_rgba(0,0,0,0.5)] max-w-[130px] z-30 pointer-events-none"
+          >
+            <p className="text-[9px] text-slate-200 font-bold leading-tight font-sans">
+              "{bubbleText}"
+            </p>
+            {/* arrow bubble pointer */}
+            <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-x-[5px] border-x-transparent border-t-[5px] border-t-slate-950" />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <div className={`
+        relative w-12 h-12 md:w-14 md:h-14 rounded-full flex items-center justify-center text-2xl border transition-all duration-300
+        ${isActive 
+          ? 'bg-blue-500/25 border-blue-400 scale-110 shadow-[0_0_15px_rgba(59,130,246,0.25)] ring-4 ring-blue-500/20' 
+          : 'bg-slate-950/80 border-white/5 opacity-95'}
+      `}>
+        {player.avatar}
+
+        {/* Turn Pulse Badge */}
+        {isActive && (
+          <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-green-500 border-2 border-slate-950 flex items-center justify-center animate-pulse">
+            <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
+          </span>
+        )}
+
+        {/* Card Counter bubble */}
+        <span className={`
+          absolute -bottom-1 -right-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold font-mono border text-white shadow-md
+          ${player.cards.length <= 2 ? 'bg-red-600 border-red-500 animate-pulse' : 'bg-slate-900 border-white/5'}
+        `}>
+          {player.cards.length}
+        </span>
+      </div>
+
+      <div className="mt-1.5 flex flex-col items-center">
+        <span className="text-[10px] font-bold text-stone-300 block max-w-[80px] truncate">
+          {player.name}
+        </span>
+        {player.cards.length === 1 && (
+          <span className="bg-red-500 text-stone-950 text-[8px] font-black px-1.5 py-0.2 rounded-full uppercase font-sans animate-bounce mt-0.5 shadow-sm">
+            อีอ้อ!
+          </span>
+        )}
+      </div>
+
+    </div>
+  );
+};

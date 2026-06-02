@@ -1,0 +1,6 @@
+{
+  "name": "แหม่มการ์ด",
+  "description": "An interactive, beautifully designed card game featuring dynamic card rendering, smooth animations, sounds, and 3 intelligent AI opponents, including Nont-Dam super wild card.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
