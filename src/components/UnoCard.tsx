@@ -75,6 +75,7 @@ const getPixelOutlineShadow = (color = '#000000', size = 2) => {
 };
 
 // SVG icons for action card symbols with classic styling
+// SVG icons for action card symbols with classic styling
 const renderActionSymbol = (value: CardValue, featureColor: string, sizeClass = 'w-14 h-14') => {
   if (value === 'skip') {
     return (
@@ -122,10 +123,25 @@ const renderActionSymbol = (value: CardValue, featureColor: string, sizeClass = 
   if (value === 'swap') {
     return (
       <svg className={sizeClass} viewBox="0 0 40 40" fill="none">
-        <path d="M8 15h20M24 10l5 5-5 5" stroke="#ffffff" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round" />
-        <path d="M32 25H12M16 20l-5 5 5 5" stroke="#ffffff" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round" />
-        <path d="M8 15h20M24 10l5 5-5 5" stroke="#000000" strokeWidth="1.2" strokeLinecap="round" className="opacity-40" />
-        <path d="M32 25H12M16 20l-5 5 5 5" stroke="#000000" strokeWidth="1.2" strokeLinecap="round" className="opacity-40" />
+        <defs>
+          <linearGradient id="swapGrad1" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="#4ade80" />
+            <stop offset="100%" stopColor="#15803d" />
+          </linearGradient>
+          <linearGradient id="swapGrad2" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="#f43f5e" />
+            <stop offset="100%" stopColor="#be123c" />
+          </linearGradient>
+        </defs>
+        {/* Circular curved swap arrows */}
+        <path d="M28 14c4 4 4 10 0 14" stroke="url(#swapGrad1)" strokeWidth="3.5" strokeLinecap="round" />
+        <path d="M12 26c-4-4-4-10 0-14" stroke="url(#swapGrad2)" strokeWidth="3.5" strokeLinecap="round" />
+        {/* Arrows heads */}
+        <path d="M28 10l1 5-5-1" fill="#4ade80" stroke="#15803d" strokeWidth="1" />
+        <path d="M12 30l-1-5 5 1" fill="#f43f5e" stroke="#be123c" strokeWidth="1" />
+        {/* Two cards in center flying */}
+        <rect x="11" y="16" width="7" height="10" rx="1" fill="#ffffff" stroke="#000000" strokeWidth="0.8" transform="rotate(-20 14.5 21)" />
+        <rect x="22" y="14" width="7" height="10" rx="1" fill="#1e1b4b" stroke="#ffffff" strokeWidth="0.8" transform="rotate(20 25.5 19)" />
       </svg>
     );
   }
@@ -133,9 +149,24 @@ const renderActionSymbol = (value: CardValue, featureColor: string, sizeClass = 
   if (value === 'shield') {
     return (
       <svg className={sizeClass} viewBox="0 0 40 40" fill="none">
-        <path d="M20 6s11 2 11 11c0 8-11 17-11 17S9 25 9 17C9 8 20 6 20 6z" fill="none" stroke="#ffffff" strokeWidth="4.5" strokeLinejoin="round" />
-        <path d="M20 10v20M14 18h12" stroke="#ffffff" strokeWidth="3.5" strokeLinecap="round" />
-        <path d="M20 6s11 2 11 11c0 8-11 17-11 17S9 25 9 17C9 8 20 6 20 6z" fill="none" stroke="#000000" strokeWidth="1.2" className="opacity-40" />
+        {/* Shield Backplate Gradient */}
+        <defs>
+          <linearGradient id="shieldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#38bdf8" />
+            <stop offset="50%" stopColor="#0284c7" />
+            <stop offset="100%" stopColor="#0369a1" />
+          </linearGradient>
+          <linearGradient id="goldGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stopColor="#fbbf24" />
+            <stop offset="100%" stopColor="#d97706" />
+          </linearGradient>
+        </defs>
+        {/* Outer Glowing Border */}
+        <path d="M20 5s12 2 12 11c0 8.5-12 18-12 18S8 24.5 8 16C8 7 20 5 20 5z" fill="url(#shieldGrad)" stroke="#ffffff" strokeWidth="2.5" strokeLinejoin="round" />
+        {/* Inner Gold Rim */}
+        <path d="M20 8s9 1.5 9 8.5c0 6.5-9 14-9 14S11 23 11 16.5C11 9.5 20 8 20 8z" fill="none" stroke="url(#goldGrad)" strokeWidth="2" strokeLinejoin="round" />
+        {/* Protection Cross */}
+        <path d="M20 12v12M14 18h12" stroke="#ffffff" strokeWidth="3" strokeLinecap="round" />
       </svg>
     );
   }
@@ -143,9 +174,26 @@ const renderActionSymbol = (value: CardValue, featureColor: string, sizeClass = 
   if (value === 'bomb') {
     return (
       <svg className={sizeClass} viewBox="0 0 40 40" fill="none">
-        <circle cx="18" cy="22" r="10" fill="none" stroke="#ffffff" strokeWidth="4.5" />
-        <path d="M25 15l4-4M30 8l2-2M27 6l2 2" stroke="#ffffff" strokeWidth="3.5" strokeLinecap="round" />
-        <circle cx="18" cy="22" r="10" fill="none" stroke="#000000" strokeWidth="1.2" className="opacity-40" />
+        <defs>
+          <linearGradient id="bombGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#475569" />
+            <stop offset="50%" stopColor="#1e293b" />
+            <stop offset="100%" stopColor="#0f172a" />
+          </linearGradient>
+          <radialGradient id="sparkGrad" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor="#fef08a" />
+            <stop offset="50%" stopColor="#f97316" />
+            <stop offset="100%" stopColor="#dc2626" stopOpacity="0" />
+          </radialGradient>
+        </defs>
+        {/* Bomb Body */}
+        <circle cx="17" cy="23" r="10" fill="url(#bombGrad)" stroke="#ffffff" strokeWidth="2.5" />
+        <rect x="14" y="11.5" width="6" height="3" fill="#64748b" stroke="#ffffff" strokeWidth="1.2" transform="rotate(-15 17 13)" />
+        {/* Burning Fuse */}
+        <path d="M19 12c2-4 7-2 9-5" stroke="#fca5a5" strokeWidth="2" strokeLinecap="round" />
+        {/* Spark/Fire */}
+        <circle cx="28" cy="7" r="5" fill="url(#sparkGrad)" />
+        <path d="M28 7l-2-2M28 7l2 2M28 7l2-2M28 7l-2 2" stroke="#fbbf24" strokeWidth="1" />
       </svg>
     );
   }
@@ -153,9 +201,20 @@ const renderActionSymbol = (value: CardValue, featureColor: string, sizeClass = 
   if (value === 'spy') {
     return (
       <svg className={sizeClass} viewBox="0 0 40 40" fill="none">
-        <path d="M6 20s7-10 14-10 14 10 14 10-7 10-14 10S6 20 6 20z" fill="none" stroke="#ffffff" strokeWidth="4.5" strokeLinejoin="round" />
-        <circle cx="20" cy="20" r="4.5" fill="#ffffff" />
-        <path d="M6 20s7-10 14-10 14 10 14 10-7 10-14 10S6 20 6 20z" fill="none" stroke="#000000" strokeWidth="1.2" className="opacity-40" />
+        <defs>
+          <linearGradient id="eyeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="#34d399" />
+            <stop offset="100%" stopColor="#059669" />
+          </linearGradient>
+        </defs>
+        {/* Cyber Eye Outline */}
+        <path d="M5 20s7-9 15-9 15 9 15 9-7 9-15 9S5 20 5 20z" fill="none" stroke="#ffffff" strokeWidth="2.5" strokeLinejoin="round" />
+        {/* Iris */}
+        <circle cx="20" cy="20" r="7.5" fill="url(#eyeGrad)" stroke="#ffffff" strokeWidth="1.5" />
+        {/* Pupil */}
+        <circle cx="20" cy="20" r="3.5" fill="#0f172a" />
+        {/* Reflection */}
+        <circle cx="18" cy="18" r="1.2" fill="#ffffff" />
       </svg>
     );
   }
@@ -163,9 +222,19 @@ const renderActionSymbol = (value: CardValue, featureColor: string, sizeClass = 
   if (value === 'target2') {
     return (
       <svg className={sizeClass} viewBox="0 0 40 40" fill="none">
-        <circle cx="20" cy="20" r="14" fill="none" stroke="#ffffff" strokeWidth="4.5" />
-        <circle cx="20" cy="20" r="8" fill="none" stroke="#ffffff" strokeWidth="3.5" />
-        <circle cx="20" cy="20" r="2.5" fill="#ffffff" />
+        <defs>
+          <linearGradient id="targetGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#ef4444" />
+            <stop offset="100%" stopColor="#991b1b" />
+          </linearGradient>
+        </defs>
+        {/* Crosshair Rings */}
+        <circle cx="20" cy="20" r="13" fill="none" stroke="url(#targetGrad)" strokeWidth="3" />
+        <circle cx="20" cy="20" r="6" fill="none" stroke="#ffffff" strokeWidth="1.8" />
+        {/* Center Target Dot */}
+        <circle cx="20" cy="20" r="2" fill="#ef4444" />
+        {/* Crosshair ticks */}
+        <path d="M20 2v6M20 32v6M2 20h6M32 20h6" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" />
       </svg>
     );
   }
@@ -173,9 +242,19 @@ const renderActionSymbol = (value: CardValue, featureColor: string, sizeClass = 
   if (value === 'discard') {
     return (
       <svg className={sizeClass} viewBox="0 0 40 40" fill="none">
-        <path d="M10 12h20M13 12l2 20c0 2 2 3 4 3h2c2 0 4-1 4-3l2-20" stroke="#ffffff" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round" />
-        <path d="M16 12V8a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v4" stroke="#ffffff" strokeWidth="3.5" strokeLinecap="round" />
-        <path d="M10 12h20" stroke="#000000" strokeWidth="1.2" className="opacity-40" />
+        <defs>
+          <linearGradient id="binGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#f3f4f6" />
+            <stop offset="100%" stopColor="#9ca3af" />
+          </linearGradient>
+        </defs>
+        {/* Trash Can Body */}
+        <path d="M9 12h22M12 12l2 20c0 2 2 3 4 3h2c2 0 4-1 4-3l2-20" fill="none" stroke="#ffffff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M12 12l1.8 19c0 1 1 1.5 2 1.5h8.4c1 0 2-.5 2-1.5L28 12" fill="url(#binGrad)" />
+        {/* Trash Can Lid */}
+        <path d="M15 12V8.5c0-.8.7-1.5 1.5-1.5h7c.8 0 1.5.7 1.5 1.5V12" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" />
+        {/* Grill Slots */}
+        <path d="M17 17v11M20 17v11M23 17v11" stroke="#4b5563" strokeWidth="1.5" strokeLinecap="round" />
       </svg>
     );
   }
@@ -183,7 +262,17 @@ const renderActionSymbol = (value: CardValue, featureColor: string, sizeClass = 
   if (value === 'double') {
     return (
       <svg className={sizeClass} viewBox="0 0 40 40" fill="none">
-        <text x="20" y="27" fontFamily="'Press Start 2P', monospace" fontSize="16" fill="#ffffff" textAnchor="middle" fontWeight="bold" stroke="black" strokeWidth="2.5" paintOrder="stroke fill">
+        <defs>
+          <linearGradient id="doubleGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#a78bfa" />
+            <stop offset="100%" stopColor="#6d28d9" />
+          </linearGradient>
+        </defs>
+        {/* Two miniature overlapping cards */}
+        <rect x="8" y="12" width="16" height="22" rx="2" fill="url(#doubleGrad)" stroke="#ffffff" strokeWidth="1.8" transform="rotate(-12 16 23)" />
+        <rect x="16" y="8" width="16" height="22" rx="2" fill="url(#doubleGrad)" stroke="#ffffff" strokeWidth="1.8" transform="rotate(12 24 19)" />
+        {/* Big x2 label */}
+        <text x="21" y="26" fontFamily="'Press Start 2P', monospace" fontSize="13.5" fill="#facc15" textAnchor="middle" fontWeight="bold" stroke="#000000" strokeWidth="2.5" paintOrder="stroke fill">
           x2
         </text>
       </svg>
@@ -193,8 +282,14 @@ const renderActionSymbol = (value: CardValue, featureColor: string, sizeClass = 
   if (value === 'strike') {
     return (
       <svg className={sizeClass} viewBox="0 0 40 40" fill="none">
-        <path d="M24 6L11 22h9l-2 12 13-16h-9l2-12z" fill="#ffffff" stroke="#ffffff" strokeWidth="1.5" strokeLinejoin="round" />
-        <path d="M24 6L11 22h9l-2 12 13-16h-9l2-12z" fill="none" stroke="#000000" strokeWidth="1" className="opacity-30" />
+        <defs>
+          <linearGradient id="lightningGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#fbbf24" />
+            <stop offset="70%" stopColor="#f59e0b" />
+            <stop offset="100%" stopColor="#d97706" />
+          </linearGradient>
+        </defs>
+        <path d="M25 4L11 22h10l-2 14 14-18H23l2-12z" fill="url(#lightningGrad)" stroke="#ffffff" strokeWidth="2" strokeLinejoin="round" />
       </svg>
     );
   }
@@ -202,9 +297,25 @@ const renderActionSymbol = (value: CardValue, featureColor: string, sizeClass = 
   if (value === 'freeze') {
     return (
       <svg className={sizeClass} viewBox="0 0 40 40" fill="none">
-        <path d="M20 6v28M6 20h28M10 10l20 20M10 30l20-20" stroke="#ffffff" strokeWidth="4.5" strokeLinecap="round" />
-        <circle cx="20" cy="20" r="3" fill="#ffffff" />
-        <circle cx="20" cy="20" r="3" fill="none" stroke="black" strokeWidth="1" className="opacity-30" />
+        <defs>
+          <linearGradient id="iceGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#e0f2fe" />
+            <stop offset="50%" stopColor="#7dd3fc" />
+            <stop offset="100%" stopColor="#0284c7" />
+          </linearGradient>
+        </defs>
+        <g stroke="url(#iceGrad)" strokeWidth="3" strokeLinecap="round">
+          {/* Main axes */}
+          <line x1="20" y1="5" x2="20" y2="35" />
+          <line x1="5" y1="20" x2="35" y2="20" />
+          <line x1="9.4" y1="9.4" x2="30.6" y2="30.6" />
+          <line x1="9.4" y1="30.6" x2="30.6" y2="9.4" />
+          {/* Crystal branches */}
+          <path d="M20 9l-4 4M20 9l4 4M20 31l-4-4M20 31l4-4" />
+          <path d="M9 20l4-4M9 20l4 4M31 20l-4-4M31 20l-4 4" />
+          <path d="M12 12h5v5M28 28h-5v-5M12 28h5v-5M28 12h-5v5" />
+        </g>
+        <circle cx="20" cy="20" r="4.5" fill="#ffffff" stroke="#0284c7" strokeWidth="1.5" />
       </svg>
     );
   }
@@ -212,8 +323,17 @@ const renderActionSymbol = (value: CardValue, featureColor: string, sizeClass = 
   if (value === 'copy') {
     return (
       <svg className={sizeClass} viewBox="0 0 40 40" fill="none">
-        <rect x="14" y="14" width="16" height="18" rx="2" fill="none" stroke="#ffffff" strokeWidth="4.5" strokeLinejoin="round" />
-        <path d="M26 10V8a2 2 0 0 0-2-2H10a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h2" stroke="#ffffff" strokeWidth="4.5" strokeLinecap="round" />
+        <defs>
+          <linearGradient id="copyGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#cbd5e1" />
+            <stop offset="100%" stopColor="#64748b" />
+          </linearGradient>
+        </defs>
+        {/* Document Copy Overlaps */}
+        <rect x="14" y="14" width="16" height="19" rx="2" fill="url(#copyGrad)" stroke="#ffffff" strokeWidth="2" strokeLinejoin="round" />
+        <path d="M26 10V8a2 2 0 0 0-2-2H10a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h2" fill="none" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" />
+        {/* Horizontal lines on front document */}
+        <path d="M18 20h8M18 24h8M18 28h5" stroke="#ffffff" strokeWidth="1.5" strokeLinecap="round" />
       </svg>
     );
   }
