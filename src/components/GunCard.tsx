@@ -10,11 +10,10 @@ interface GunCardProps {
   hoverable?: boolean;
   size?: 'sm' | 'md' | 'lg';
   isCurrentPlayMarker?: boolean;
-  designStyle?: 'goofy' | 'cyber' | 'golden';
 }
 
-// 1. Gamer & Eater Style (Gabe base): Charcoal Hoodie (R), Pepsi can (L) left, Keyboard (W) center, Snack bag (G) right
-const SPRITE_GOOFY = [
+// The official, approved Gamer & Pepsi design: Short curly crop hair, sitting in front of computer, eating burger & drinking Pepsi (L) next to Keyboard (W)
+const GUN_PIXEL_SPRITE = [
   "........................",
   "......H.H.H.H.H.H.......", // ผมหยิกศอกสั้นๆ ด้านบน
   "....YYYYYYYYYYYYYYYY....", // ผ้าคาดศีรษะสีทอง
@@ -24,7 +23,7 @@ const SPRITE_GOOFY = [
   ".YHHHHHPPPPPPPPPPHHHHHY.",
   ".YHHHHPPPPPPPPPPPPPHHHY.",
   "YHHHPPPPPPPPPPPPPPPPPHHY",
-  "YHHHPPEEEEPPPPEEEEPPPHHY", // แว่นตาสีแดงเรืองแสง (สะท้อนแสงหน้าจอ)
+  "YHHHPPEEEEPPPPEEEEPPPHHY", // แว่นตาสีแดงเรืองแสง (สะท้อนแสงหน้าจอคอมพิวเตอร์)
   "YHHHPPEEKKEEPEEKKEEPPYHY",
   "YHHPPEEKKKKEEKKKKEEPPYHY",
   "YHHPPEEKKKKEEKKKKEEPPYHY",
@@ -42,64 +41,6 @@ const SPRITE_GOOFY = [
   "...RRRRSRRSRRSRRSRRR...."
 ];
 
-// 2. Cyber Neon Style: Short curly hair crop, lasers escaping from glasses
-const SPRITE_CYBER = [
-  "........................",
-  "......H.H.H.H.H.H.......", 
-  "....YYYYYYYYYYYYYYYY....", 
-  "...YYYYHJJJJJJJJYYYYY...",
-  "..YYYHHHHHHHHHHHHHHYYY..",
-  "..YYHHHHHHHHHHHHHHHHYY..",
-  ".YHHHHHSSKKSSKKSSHHHHHY.",
-  ".YHHHHSSKKKKKKKKSSHHHHY.",
-  "YHHHSSKKKKKKKKKKKKSSHHHY",
-  "YEEHPPEEEEPPPPEEEEPPEEHY", 
-  "EEEHPPEEKKEEPEEKKEEPPYEE",
-  "YHHPPEEKKKKEEKKKKEEPPYHY",
-  "YHHPPEEKKKKEEKKKKEEPPYHY",
-  "YHHHPPPEEEEPPPEEEEPPPHHY",
-  "YHHHHHSSKSSKKSSKSSHHHHHY",
-  "YHHHHHSSKKKKKKKKSSHHHHHY",
-  ".HHHHSSKKKMMMMKKKKHHHH.",
-  ".HHHHSSKKKKKKKKKKKHHHH.",
-  "..HHHSSSKKKKKKSSSKHHH..",
-  "...HSSKKKKKKKKKKSSH...",
-  "....SSRRRRRRRRRRSS.....",
-  "...RRRSRRSRRSRRSRRR....",
-  "..RRRRRSOOSSOOSORRRR...",
-  "..RRRRRSOOSSOOSORRRR...",
-  "...RRRRSRRSRRSRRSRRR...."
-];
-
-// 3. Golden Luxury Style: Short curly hair crop, thick gold layers, white glass reflections
-const SPRITE_GOLDEN = [
-  "........................",
-  "......H.H.H.H.H.H.......", 
-  "....YYYYYYYYYYYYYYYY....", 
-  "...YYYYHJJJJJJJJYYYYY...",
-  "..YYYHHHHHHHHHHHHHHYYY..",
-  "..YYHHHHHHHHHHHHHHHHYY..",
-  ".YHHHHHPPPPPPPPPPHHHHHY.",
-  ".YHHHHPPPPPPPPPPPPPHHHY.",
-  "YHHHPPPPPPPPPPPPPPPPPHHY",
-  "YHHHPPWWWWPPWWWWPPPHHYYH", 
-  "YHHHPPEEWWEEPEEWWEEPPYHY",
-  "YHHPPEEKKWWEEKKWWEEPPYHY",
-  "YHHPPEEKKKKEEKKKKEEPPYHY",
-  "YHHHPPPEEEEPPPEEEEPPPHHY",
-  "YHHHHPPPPHHHHHHPPPPHHHHY",
-  "YHHHHHSSKSSKKSSKSSHHHHHY",
-  ".HHHHSSKSSKKSSKSSKHHHH.",
-  ".HHHHSSKKKKKKKKSSKHHHH.",
-  "..HHHSSSKKKKKKSSSKHHH..",
-  "...HSSKKKKKKKKKKSSH...",
-  "....SSRRRRRRRRRRSS.....",
-  "...RRRYYYYYYYYYYYYRR...", 
-  "..RRRRYYYYYYYYYYYYRRRR..",
-  "..RRRRYOOOYOOOYOOORRRR..", 
-  "...RRRRYOOOYOOOYOOORRR.."
-];
-
 const colorMap: Record<string, string> = {
   '.': 'transparent',
   'Y': '#d97706', // Gold/yellow headband & details
@@ -109,7 +50,7 @@ const colorMap: Record<string, string> = {
   'E': '#ef4444', // Red glowing neon lenses
   'K': '#401811', // Deep dark brown skin contours
   'S': '#693026', // Warm primary dark chocolate skin tone
-  'R': '#1f2937', // Dark charcoal/slate hoodie color matching reference image exactly
+  'R': '#1f2937', // Dark charcoal/slate hoodie color
   'O': '#eab308', // Gold chains
   'W': '#ffffff', // Keyboard keys / teeth
   'M': '#3b0764', // Deep purple mouth cavity / smile
@@ -119,9 +60,7 @@ const colorMap: Record<string, string> = {
   'L': '#1d4ed8', // Pepsi Blue color for the can on the desk
 };
 
-export const GunPixelArt: React.FC<{ size?: number; variant?: 'goofy' | 'cyber' | 'golden' }> = ({ size = 80, variant = 'goofy' }) => {
-  const sprite = variant === 'cyber' ? SPRITE_CYBER : variant === 'golden' ? SPRITE_GOLDEN : SPRITE_GOOFY;
-  
+export const GunPixelArt: React.FC<{ size?: number }> = ({ size = 80 }) => {
   return (
     <svg 
       width={size} 
@@ -130,7 +69,7 @@ export const GunPixelArt: React.FC<{ size?: number; variant?: 'goofy' | 'cyber' 
       className="image-rendering-pixelated select-none"
       style={{ imageRendering: 'pixelated' }}
     >
-      {sprite.map((row, y) => 
+      {GUN_PIXEL_SPRITE.map((row, y) => 
         row.split('').map((char, x) => {
           const color = colorMap[char];
           if (color === 'transparent') return null;
@@ -157,11 +96,7 @@ export const GunCard: React.FC<GunCardProps> = ({
   hoverable = true,
   size = 'md',
   isCurrentPlayMarker = false,
-  designStyle,
 }) => {
-  // Read dynamically from localStorage if not explicitly passed as a prop
-  const activeStyle = designStyle || (localStorage.getItem('ai_gun_design_style') as 'goofy' | 'cyber' | 'golden') || 'goofy';
-
   const sizeClasses = {
     sm: 'w-14 h-22 rounded-none border-2 shadow p-1',
     md: 'w-24 h-36 md:w-28 md:h-42 rounded-none border-[3px] p-2',
@@ -170,60 +105,12 @@ export const GunCard: React.FC<GunCardProps> = ({
 
   const selectedSizeClass = sizeClasses[size];
 
-  // Specific quotes and stats depending on the funny style chosen
-  const cardConfigs = {
-    goofy: {
-      stats: [
-        { label: 'FAT', val: '999' },
-        { label: 'PLAY', val: '24H' },
-        { label: 'BURGER', val: 'RNG' }
-      ],
-      quotes: [
-        "เห้ย! กำลังตีป้อมอยู่ อย่ากวนดิแว้ย! การ์ดบินปลิวว่อนเลย! 🎮🍟",
-        "ตูไอกันติดเกม นั่งหน้าคอมจกเบอร์เกอร์คำโตตีนหนัก! 🍔⚡",
-        "จั่วไพ่เพิ่มไปเลยพวกแก ส่วนข้าขอเคี้ยวป๊อปคอร์นแป๊บ! 🍿👑",
-        "กินพิซซ่าไปสามถาด แป๊บซี่ลิตรอีกสี่ขวด โลกลืมกันไปเล้ย! 🍕🥤"
-      ],
-      banner: '★ GAMER GOLIATH ★',
-      borderTop: '#fca5a5',
-      borderBottom: '#7f1d1d',
-      bg: 'bg-[#2d0b12]'
-    },
-    cyber: {
-      stats: [
-        { label: 'GIGA-FAT', val: 'YES' },
-        { label: 'LASER', val: '999' },
-        { label: 'SYS', val: 'ERROR' }
-      ],
-      quotes: [
-        "ยิงลำแสงเลเซอร์สายฟ้ากระชากวิญญาณคนจั่ว! ⚡👽",
-        "ระบบขัดข้อง! ยิงคลื่นพลังแร็คเก็ตไพ่กระเจิงปลิวว่อน! 📡👾",
-        "แว่นยิงแสงสแกนหัวใจใครอ้วนที่สุดส่งพลังลงไพ่! 🛸👑"
-      ],
-      banner: '★ CYBER NEON ★',
-      borderTop: '#06b6d4',
-      borderBottom: '#0891b2',
-      bg: 'bg-[#0f172a]'
-    },
-    golden: {
-      stats: [
-        { label: 'FAT', val: '99' },
-        { label: 'CHAOS', val: '95' },
-        { label: 'GOLD', val: '24K' }
-      ],
-      quotes: [
-        "แว่นตาสะท้อนแสงทองคำกระแทกเบ้าตาเพื่อนดับ! 😎✨",
-        "กราบกราบเสี่ยกันห้อยทองเส้นยักษ์กะเทาะฟันน้ำนม! 👑💰",
-        "เสี่ยไอกันใจป๋าแจกไพ่กระจายปลิวคนดีโย่ว! 🤑💸"
-      ],
-      banner: '★ GOLD LUXURY ★',
-      borderTop: '#fbbf24',
-      borderBottom: '#78350f',
-      bg: 'bg-[#450a0a]'
-    }
-  };
-
-  const currentConfig = cardConfigs[activeStyle] || cardConfigs.goofy;
+  // Specific quotes and stats for Gamer & Pepsi Goliath
+  const stats = [
+    { label: 'FAT', val: '999' },
+    { label: 'PLAY', val: '24H' },
+    { label: 'BURGER', val: 'RNG' }
+  ];
 
   // Pixel font outline shadows
   const pShadow = '1px 1px 0px #000, -1px -1px 0px #000, 1px -1px 0px #000, -1px 1px 0px #000';
@@ -235,7 +122,7 @@ export const GunCard: React.FC<GunCardProps> = ({
       onClick={playable && onClick ? onClick : undefined}
       className={`
         ${selectedSizeClass} 
-        relative ${currentConfig.bg} text-slate-100
+        relative bg-[#2d0b12] text-slate-100
         border-black flex flex-col items-center justify-between select-none overflow-hidden
         transition-all duration-300
         ${playable ? 'cursor-pointer ring-4 ring-yellow-400 font-mono shadow-[6px_6px_0px_#000]' : 'opacity-95 shadow-[4px_4px_0px_#000]'}
@@ -243,10 +130,10 @@ export const GunCard: React.FC<GunCardProps> = ({
       `}
       style={{
         imageRendering: 'pixelated',
-        borderTopColor: currentConfig.borderTop,
-        borderLeftColor: currentConfig.borderTop,
-        borderBottomColor: currentConfig.borderBottom,
-        borderRightColor: currentConfig.borderBottom,
+        borderTopColor: '#fca5a5',
+        borderLeftColor: '#fca5a5',
+        borderBottomColor: '#7f1d1d',
+        borderRightColor: '#7f1d1d',
       }}
     >
       {/* Scanline pattern overlay */}
@@ -284,19 +171,19 @@ export const GunCard: React.FC<GunCardProps> = ({
         <div className="relative w-15 h-15 md:w-18 md:h-18 bg-black/40 border-2 border-red-500/80 flex items-center justify-center shadow-md overflow-visible rounded-none">
           <div className="absolute inset-0 bg-gradient-to-tr from-rose-500/20 to-transparent animate-pulse" />
           
-          <GunPixelArt size={size === 'sm' ? 44 : 52} variant={activeStyle} />
+          <GunPixelArt size={size === 'sm' ? 44 : 52} />
         </div>
 
         {/* Gun Card Text and RPG Stats */}
         {size !== 'sm' && (
           <div className="text-center mt-1.5 w-full">
             <h4 className="font-mono font-extrabold text-[9px] md:text-[10px] text-red-400 tracking-tight flex items-center justify-center gap-0.5 animate-bounce" style={{ textShadow: pShadow }}>
-              ★ {activeStyle === 'goofy' ? 'GAMER 🎮' : activeStyle === 'cyber' ? 'CYBER ⚡' : 'BOSS 💰'} ★
+              ★ GAMER 🎮 ★
             </h4>
             
             {/* Retro RPG Stats block */}
             <div className="mt-1 bg-black/60 border border-red-950 px-1 py-0.5 rounded-none inline-flex flex-col gap-[1px] text-[7px] font-mono font-bold text-slate-300 w-11/12 mx-auto leading-none">
-              {currentConfig.stats.map((st, i) => (
+              {stats.map((st, i) => (
                 <div key={st.label} className={`flex justify-between ${i < 2 ? 'border-b border-red-950/40 pb-[1.5px]' : 'pt-[1.5px]'}`}>
                   <span className={i === 0 ? 'text-rose-450' : i === 1 ? 'text-amber-450' : 'text-cyan-450'}>{st.label}:</span>
                   <span className="text-white">{st.val}</span>
@@ -312,7 +199,7 @@ export const GunCard: React.FC<GunCardProps> = ({
         className="w-full text-center bg-[#581c87] border-t border-purple-900/60 py-0.5 text-[8px] md:text-[8.5px] font-black text-rose-350 tracking-wider font-mono uppercase"
         style={{ textShadow: '1px 1px 0px #000' }}
       >
-        {size === 'sm' ? 'GUN' : currentConfig.banner}
+        {size === 'sm' ? 'GUN' : '★ GAMER GOLIATH ★'}
       </div>
 
       {/* Target marker effect */}

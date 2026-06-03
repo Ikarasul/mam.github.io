@@ -80,7 +80,6 @@ export function LobbyScreen(props: LobbyScreenProps) {
 
   const [copied, setCopied] = React.useState(false);
   const [currentSlide, setCurrentSlide] = React.useState(0);
-  const [aiGunStyle, setAiGunStyle] = React.useState(localStorage.getItem('ai_gun_design_style') || 'goofy');
 
   const handleCopyCode = () => {
     if (onlineRoomCode) {
@@ -684,7 +683,7 @@ export function LobbyScreen(props: LobbyScreenProps) {
                   >
                     {/* Front: Gun Card */}
                     <div style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden' }} className="absolute inset-0">
-                      <GunCard card={{ id: 'preview-gun', color: 'wild' as CardColor, value: 'ai_gun' }} playable={true} hoverable={false} size="md" designStyle={aiGunStyle as 'goofy' | 'cyber' | 'golden'} />
+                      <GunCard card={{ id: 'preview-gun', color: 'wild' as CardColor, value: 'ai_gun' }} playable={true} hoverable={false} size="md" />
                     </div>
                     {/* Back: Standard UNO Back */}
                     <div style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }} className="absolute inset-0">
@@ -705,38 +704,6 @@ export function LobbyScreen(props: LobbyScreenProps) {
                     <p className="text-xs text-rose-400/80 italic leading-relaxed font-mono border-t border-rose-900/50 pt-2.5">
                       "{aiGunQuotes[showcaseGunQuoteIndex]}"
                     </p>
-
-                    {/* Dynamic Design Switcher for AI-Gun Card */}
-                    <div className="mt-3 pt-2.5 border-t border-slate-800/80">
-                      <div className="text-[10px] text-slate-400 font-mono font-bold mb-1.5 flex items-center gap-1">
-                        🎨 คลิกเปลี่ยนสไตล์การ์ดไอกัน:
-                      </div>
-                      <div className="flex gap-1.5">
-                        {[
-                          { id: 'goofy', label: 'คนอ้วนติดเกม' },
-                          { id: 'cyber', label: 'เลเซอร์ไซเบอร์' },
-                          { id: 'golden', label: 'เสี่ยสร้อยยักษ์' }
-                        ].map(st => (
-                          <button
-                            key={st.id}
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation(); // Prevent quote cycler trigger
-                              playCardSound();
-                              setAiGunStyle(st.id);
-                              localStorage.setItem('ai_gun_design_style', st.id);
-                            }}
-                            className={`px-2 py-1 text-[9px] font-mono font-black border transition-all rounded-sm ${
-                              aiGunStyle === st.id
-                                ? 'bg-rose-500 text-white border-rose-400 shadow-[0_0_8px_rgba(244,63,94,0.5)]'
-                                : 'bg-[#181824] text-slate-400 border-slate-800 hover:border-slate-700'
-                            }`}
-                          >
-                            {st.label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
                   </div>
                 </motion.button>
               )}
